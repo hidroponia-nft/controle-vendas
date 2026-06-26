@@ -53,7 +53,7 @@ function suite(n){ console.log('\\n── ' + n + ' ──'); }
 function ok(cond,msg){ if(cond){ __pass++; console.log('  \\u2705 '+msg); }
                        else { __fail++; console.log('  \\u274C FALHOU: '+msg); } }
 function eq(a,b,msg){ ok(a===b, msg + (a===b?'':'  (esperado '+JSON.stringify(b)+', veio '+JSON.stringify(a)+')')); }
-function reset(){ PRODUTOS=[]; CLIENTES=[]; VENDAS=[]; PLANTIOS=[]; CUSTOS=[]; CART=[]; FB_USER={uid:'teste'}; REL_PERIODO='tudo'; CUSTO_PERIODO='tudo'; }
+function reset(){ PRODUTOS=[]; CLIENTES=[]; VENDAS=[]; PLANTIOS=[]; CUSTOS=[]; CUSTOS_FIXOS=[]; CART=[]; FB_USER={uid:'teste'}; REL_PERIODO='tudo'; CUSTO_PERIODO='tudo'; }
 function hojeMais(n){ return addDias(new Date().toISOString().slice(0,10), n); }
 `;
 
@@ -154,6 +154,30 @@ var rc=document.getElementById('r-clientes').innerHTML;
 ok(rc.includes('Mercado A') && rc.includes('Feira B'), 'lista os dois clientes');
 ok(rc.indexOf('Mercado A') < rc.indexOf('Feira B'), 'quem mais comprou aparece primeiro');
 ok(rc.includes(brl(500)) && rc.includes(brl(200)), 'mostra o total comprado por cliente');
+
+/* ===== FASE: CUSTOS FIXOS — entram sozinhos na margem (mês) ===== */
+suite('Custos fixos · mensais entram na margem');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+VENDAS=[{itens:[{id:'p1',nome:'Brida',preco:5,qtd:400}],total:2000,qtdItens:400,clienteNome:'A',tsLocal:Date.now()}];
+CUSTOS_FIXOS=[
+  {id:'f1',categoria:'Funcionário',valor:1000,tipo:'Operacional'},
+  {id:'f2',categoria:'Energia',valor:600,tipo:'Operacional'},
+  {id:'f3',categoria:'Combustível',valor:120,tipo:'Operacional'}
+];
+eq(fixosMensalTotal(), 1720, 'total fixo mensal = 1720');
+REL_PERIODO='mes'; renderRelatorios();
+eq(document.getElementById('r-custos').textContent, brl(1720), 'custos do mês = 1720 (só fixos)');
+eq(document.getElementById('m-lbruto').textContent, brl(2000), 'lucro bruto = 2000 (fixos são operacionais)');
+eq(document.getElementById('m-lliquido').textContent, brl(280), 'lucro líquido = 2000 - 1720 = 280');
+ok(fatorPeriodo('semana') < fatorPeriodo('mes'), 'semana conta fração menor que o mês');
+
+/* fixo de produção afeta a margem bruta */
+reset();
+VENDAS=[{itens:[{id:'p1',nome:'Brida',preco:5,qtd:200}],total:1000,qtdItens:200,clienteNome:'A',tsLocal:Date.now()}];
+CUSTOS_FIXOS=[{id:'f1',categoria:'Fertilizantes',valor:200,tipo:'Produção'}];
+REL_PERIODO='mes'; renderRelatorios();
+eq(document.getElementById('m-lbruto').textContent, brl(800), 'fixo de produção abate na margem bruta (1000-200)');
 `;
 
 vm.createContext(sandbox);

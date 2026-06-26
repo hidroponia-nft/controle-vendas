@@ -256,10 +256,18 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
         <button data-p="tudo" onclick="setPeriodoCusto('tudo')">Tudo</button>
       </div>
       <div class="stat" style="margin-top:12px">
-        <div class="box"><div class="v" id="cu-total">R$ 0,00</div><div class="k">Total no período</div></div>
+        <div class="box"><div class="v" id="cu-total">R$ 0,00</div><div class="k">Lançamentos no período</div></div>
         <div class="box"><div class="v" id="cu-prod">R$ 0,00</div><div class="k">Custos de produção</div></div>
       </div>
-      <button class="btn" onclick="openCusto()">+ Novo custo</button>
+      <button class="btn" onclick="openCusto()">+ Novo custo (avulso)</button>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0">🔁 Custos fixos mensais</h2>
+        <button class="btn sm" onclick="openCustoFixo()">+ Novo</button>
+      </div>
+      <p class="muted small" style="margin:8px 0 0">Repetem todo mês automaticamente. Total: <b id="cf-total">R$ 0,00</b>/mês</p>
+      <div id="cf-list" style="margin-top:8px"><div class="empty">Carregando…</div></div>
     </div>
     <div class="card">
       <h2>📂 Por categoria</h2>
@@ -298,6 +306,7 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
         <div class="box"><div class="v" id="m-mbruta">0%</div><div class="k">Margem bruta</div></div>
         <div class="box"><div class="v" id="m-mliquida">0%</div><div class="k">Margem líquida</div></div>
       </div>
+      <p class="muted small" id="m-fixonote" style="margin-top:10px"></p>
     </div>
     <div class="card">
       <h2>👥 Por cliente</h2>
@@ -399,8 +408,8 @@ const firebaseConfig = {
   appId: "1:890385133210:web:e7fd6c9756e1f37b0cf923"
 };
 let FB_AUTH=null, FB_DB=null, FB_USER=null, FB_OK=false;
-let PRODUTOS=[], CLIENTES=[], VENDAS=[], PLANTIOS=[], CUSTOS=[];
-let unsubP=null, unsubC=null, unsubV=null, unsubPl=null, unsubCu=null;
+let PRODUTOS=[], CLIENTES=[], VENDAS=[], PLANTIOS=[], CUSTOS=[], CUSTOS_FIXOS=[];
+let unsubP=null, unsubC=null, unsubV=null, unsubPl=null, unsubCu=null, unsubCf=null;
 
 try{
   if(window.firebase && firebase.initializeApp){
@@ -417,7 +426,7 @@ function onAuth(u){
   updateAuthUI();
   detach();
   if(u){ attachListeners(); }
-  else { PRODUTOS=[]; CLIENTES=[]; VENDAS=[]; PLANTIOS=[]; CUSTOS=[]; renderAll(); }
+  else { PRODUTOS=[]; CLIENTES=[]; VENDAS=[]; PLANTIOS=[]; CUSTOS=[]; CUSTOS_FIXOS=[]; renderAll(); }
 }
 function updateAuthUI(){
   const logged = !!FB_USER;
@@ -453,9 +462,13 @@ function attachListeners(){
     CUSTOS = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderCustos(); renderRelatorios(); // margem depende dos custos
   }, fbErr);
+  unsubCf = col('custosFixos').onSnapshot(snap=>{
+    CUSTOS_FIXOS = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderCustosFixos(); renderRelatorios(); // margem inclui os fixos
+  }, fbErr);
 }
-function detach(){ [unsubP,unsubC,unsubV,unsubPl,unsubCu].forEach(f=>f&&f()); unsubP=unsubC=unsubV=unsubPl=unsubCu=null; }
-function renderAll(){ renderProdutos(); renderClientes(); renderRelatorios(); renderPlantios(); renderCustos(); refreshPdvSelects(); }
+function detach(){ [unsubP,unsubC,unsubV,unsubPl,unsubCu,unsubCf].forEach(f=>f&&f()); unsubP=unsubC=unsubV=unsubPl=unsubCu=unsubCf=null; }
+function renderAll(){ renderProdutos(); renderClientes(); renderRelatorios(); renderPlantios(); renderCustos(); renderCustosFixos(); refreshPdvSelects(); }
 function needLogin(){ if(!FB_OK||!FB_USER){ toast('Entre na sua conta 👇'); goTo('conta'); return true; } return false; }
 /* Mostra a causa real de um erro do Firebase em vez de engolir. */
 function fbErr(e){
@@ -808,6 +821,23 @@ function periodoIni(p){
 function periodoLabel(p){ return p==='semana'?'na semana':p==='mes'?'no mês':'no período'; }
 function dataParaTs(d){ return d ? new Date(d+'T12:00:00').getTime() : 0; }
 function custosNoPeriodo(ini){ return CUSTOS.filter(c=> dataParaTs(c.data) >= ini); }
+/* custos fixos são mensais; no relatório entram proporcional ao período (base 30 dias) */
+function fatorPeriodo(p){
+  if(p==='hoje')   return 1/30;
+  if(p==='semana') return 7/30;
+  if(p==='mes')    return 1;            // mês = 1 mês cheio de custo fixo
+  let min=Infinity;                      // 'tudo' = desde o 1º registro
+  VENDAS.forEach(v=>{ if(v.tsLocal&&v.tsLocal<min) min=v.tsLocal; });
+  CUSTOS.forEach(c=>{ const t=dataParaTs(c.data); if(t&&t<min) min=t; });
+  if(!isFinite(min)) return 1;
+  return Math.max(1,(Date.now()-min)/86400000+1)/30;
+}
+function fixosMensalTotal(){ return CUSTOS_FIXOS.reduce((s,c)=>s+(c.valor||0),0); }
+function fixosPorTipo(p){
+  const f=fatorPeriodo(p); let prod=0, oper=0;
+  CUSTOS_FIXOS.forEach(c=>{ if(c.tipo==='Produção') prod+=(c.valor||0)*f; else oper+=(c.valor||0)*f; });
+  return {prod, oper, total:prod+oper};
+}
 function setPeriodo(p){ REL_PERIODO=p; document.querySelectorAll('#rel-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderRelatorios(); }
 function setPeriodoCusto(p){ CUSTO_PERIODO=p; document.querySelectorAll('#cu-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderCustos(); }
 function corLucro(el,v){ if(el) el.style.color = v>=0 ? '#2e7d32' : '#c62828'; }
@@ -834,6 +864,7 @@ function renderRelatorios(){
   });
   let cProd=0, cOper=0;
   custosNoPeriodo(ini).forEach(c=>{ if(c.tipo==='Produção') cProd+=c.valor||0; else cOper+=c.valor||0; });
+  const fx=fixosPorTipo(REL_PERIODO); cProd+=fx.prod; cOper+=fx.oper; // soma custos fixos (proporcional)
   const custosTot=cProd+cOper;
   const lucroBruto=receita-cProd, lucroLiq=receita-custosTot;
   const mBruta=receita?lucroBruto/receita*100:0, mLiq=receita?lucroLiq/receita*100:0;
@@ -845,6 +876,10 @@ function renderRelatorios(){
   setTxt('m-mbruta',mBruta.toFixed(1)+'%'); setTxt('m-mliquida',mLiq.toFixed(1)+'%');
   corLucro($('m-lbruto'),lucroBruto); corLucro($('m-lliquido'),lucroLiq);
   corLucro($('m-mbruta'),mBruta); corLucro($('m-mliquida'),mLiq);
+  const nota=$('m-fixonote');
+  if(nota) nota.textContent = fixosMensalTotal()>0
+    ? `Inclui custos fixos: ${brl(fx.total)} ${periodoLabel(REL_PERIODO)} (de ${brl(fixosMensalTotal())}/mês).`
+    : '';
 
   const arrCli=Object.entries(porCliente).sort((a,b)=>b[1].total-a[1].total);
   $('r-clientes').innerHTML = arrCli.length ? arrCli.map(([nome,o])=>`
@@ -926,6 +961,7 @@ function delCusto(id){
   col('custos').doc(id).delete().then(()=>{ closeModal(); toast('Custo excluído'); });
 }
 function renderCustos(){
+  renderCustosFixos();
   if(!$('cu-total')) return;
   if(!FB_USER){
     $('cu-total').textContent=brl(0); $('cu-prod').textContent=brl(0);
@@ -952,6 +988,75 @@ function renderCustos(){
       <div class="sub">${esc(c.categoria)} · ${esc(c.tipo||'')} · ${d}</div></div>
       <span class="pill">${brl(c.valor)}</span></div>`;
   }).join('') : '<div class="empty">Nenhum custo lançado. Toque em <b>+ Novo custo</b>.</div>';
+}
+
+/* ───────────────────────── CUSTOS FIXOS MENSAIS ─────────────────────────
+   Cadastrados uma vez; entram todo mês automaticamente no cálculo de margem. */
+function renderCustosFixos(){
+  if(!$('cf-list')) return;
+  if(!FB_USER){ $('cf-total').textContent=brl(0); $('cf-list').innerHTML='<div class="empty">Entre na conta.</div>'; return; }
+  $('cf-total').textContent=brl(fixosMensalTotal());
+  if(!CUSTOS_FIXOS.length){
+    $('cf-list').innerHTML='<div class="empty">Nenhum custo fixo ainda.<br>'
+      +'<button class="btn sm" style="margin-top:12px;display:inline-flex" onclick="seedFixos()">➕ Adicionar Combustível, Energia e Funcionário</button></div>';
+    return;
+  }
+  $('cf-list').innerHTML = CUSTOS_FIXOS.slice().sort((a,b)=>(b.valor||0)-(a.valor||0)).map(c=>`
+    <div class="item" onclick='openCustoFixo(${JSON.stringify(c).replace(/'/g,"&#39;")})' style="cursor:pointer">
+      <div><div class="name">${CAT_ICON[c.categoria]||'•'} ${esc(c.descricao||c.categoria)}</div>
+      <div class="sub">${esc(c.categoria)} · ${esc(c.tipo||'')} · todo mês</div></div>
+      <span class="pill">${brl(c.valor)}/mês</span></div>`).join('');
+}
+function openCustoFixo(c){
+  if(needLogin()) return;
+  const ed=c||{};
+  const tipo=ed.tipo||tipoPadrao(ed.categoria||CAT_CUSTO[0]);
+  openModal(`
+    <h3>${ed.id?'✏️ Editar custo fixo':'🔁 Novo custo fixo mensal'}</h3>
+    <label>Categoria</label>
+    <select id="m-fcat" onchange="custoFixoTipoAuto()">${CAT_CUSTO.map(k=>`<option value="${k}" ${k===(ed.categoria||CAT_CUSTO[0])?'selected':''}>${CAT_ICON[k]} ${k}</option>`).join('')}</select>
+    <label>Descrição (opcional)</label>
+    <input id="m-fdesc" value="${esc(ed.descricao||'')}" placeholder="Ex.: Salário do ajudante">
+    <label>Valor por mês (R$)</label>
+    <input id="m-fvalor" type="number" inputmode="decimal" step="0.01" value="${ed.valor!=null?ed.valor:''}" placeholder="0,00">
+    <label>Tipo de custo</label>
+    <select id="m-ftipo">
+      <option ${tipo==='Produção'?'selected':''}>Produção</option>
+      <option ${tipo==='Operacional'?'selected':''}>Operacional</option>
+    </select>
+    <p class="muted small" style="margin:8px 0 0">Este valor é cobrado <b>todo mês</b> e entra sozinho no cálculo de margem.</p>
+    <button class="btn green" onclick="saveCustoFixo('${ed.id||''}')">Salvar</button>
+    ${ed.id?`<button class="btn danger" onclick="delCustoFixo('${ed.id}')">Excluir custo fixo</button>`:''}
+    <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+  `);
+}
+function custoFixoTipoAuto(){ const t=$('m-ftipo'); if(t) t.value=tipoPadrao($('m-fcat').value); }
+function saveCustoFixo(id){
+  if(needLogin()) return;
+  const categoria=$('m-fcat').value;
+  const descricao=($('m-fdesc').value||'').trim();
+  const valor=parseFloat(String($('m-fvalor').value).replace(',','.'))||0;
+  const tipo=$('m-ftipo').value;
+  if(valor<=0){ toast('Informe o valor mensal'); return; }
+  const dados={categoria, descricao, valor, tipo};
+  if(!id){ dados.tsLocal=Date.now(); }
+  const ref = id ? col('custosFixos').doc(id).set(dados,{merge:true}) : col('custosFixos').add(dados);
+  ref.then(()=>{ closeModal(); toast('Custo fixo salvo ✅'); }).catch(fbErr);
+}
+function delCustoFixo(id){
+  if(!confirm('Excluir este custo fixo?')) return;
+  col('custosFixos').doc(id).delete().then(()=>{ closeModal(); toast('Custo fixo excluído'); });
+}
+function seedFixos(){
+  if(needLogin()) return;
+  const base=[
+    {categoria:'Funcionário', descricao:'', valor:1000, tipo:'Operacional'},
+    {categoria:'Energia',     descricao:'', valor:600,  tipo:'Operacional'},
+    {categoria:'Combustível', descricao:'', valor:120,  tipo:'Operacional'}
+  ];
+  const batch=FB_DB.batch();
+  base.forEach(c=>{ c.tsLocal=Date.now(); batch.set(col('custosFixos').doc(), c); });
+  batch.commit().then(()=>toast('Custos fixos adicionados ✅')).catch(fbErr);
 }
 
 /* ───────────────────────── INIT ───────────────────────── */
