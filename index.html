@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1565c0">
+<title>Controle de Vendas</title>
+<link rel="manifest" href="manifest.json">
+<!-- Instalar na tela inicial — iOS (Safari) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vendas">
+<!-- Instalar na tela inicial — Android (Chrome) -->
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+<style>
+:root{
+  --b1:#1565c0; --b2:#1e88e5; --b3:#64b5f6;
+  --g1:#2e7d32; --g2:#43a047;
+  --or1:#ef6c00; --or2:#fb8c00;
+  --bg:#eaf0f8; --card:#fff; --txt:#16202e; --muted:#6b7787;
+  --line:#e6ecf4; --danger:#d32f2f; --warn:#ef6c00;
+  --shadow:0 8px 22px rgba(20,60,120,.10);
+  --radius:18px;
+  /* tema padrão (azul) — sobrescrito por aba em body.tab-* */
+  --th1:#1565c0; --th2:#1e88e5; --th-bg:#e7f0fb; --th-card:#f1f7ff; --th-soft:#e2edfc;
+}
+/* ── COR POR ABA ── cada tela ganha sua própria cor (fundo, cabeçalho, cartões, menu) */
+body.tab-vendas    {--th1:#1565c0; --th2:#1e88e5; --th-bg:#e7f0fb; --th-card:#f1f7ff; --th-soft:#e2edfc;}
+body.tab-plantio   {--th1:#2e7d32; --th2:#43a047; --th-bg:#e4f3e6; --th-card:#eef9ef; --th-soft:#dff1e2;}
+body.tab-produtos  {--th1:#e65100; --th2:#fb8c00; --th-bg:#fdeedd; --th-card:#fff6ec; --th-soft:#ffe7cf;}
+body.tab-clientes  {--th1:#6a1b9a; --th2:#8e24aa; --th-bg:#f0e4fb; --th-card:#f8f0fe; --th-soft:#eddcfb;}
+body.tab-relatorios{--th1:#00838f; --th2:#00acc1; --th-bg:#def4f6; --th-card:#eefafb; --th-soft:#d6f0f3;}
+body.tab-conta     {--th1:#1565c0; --th2:#1e88e5; --th-bg:#e7f0fb; --th-card:#f1f7ff; --th-soft:#e2edfc;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:
+    radial-gradient(1200px 460px at 50% -150px, var(--th-soft) 0%, rgba(255,255,255,0) 72%),
+    var(--th-bg);
+  background-attachment:fixed;
+  color:var(--txt);
+  padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  transition:background-color .35s ease;
+}
+header{
+  background:linear-gradient(135deg,var(--th1),var(--th2));
+  color:#fff; padding:calc(18px + env(safe-area-inset-top)) 18px 20px;
+  box-shadow:0 10px 26px rgba(0,0,0,.18);
+  position:sticky; top:0; z-index:30;
+  border-radius:0 0 22px 22px;
+  transition:background .35s ease;
+}
+header .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+header h1{margin:0;font-size:22px;font-weight:800;letter-spacing:.2px}
+header .who{font-size:12.5px;opacity:.92;margin-top:3px;display:flex;align-items:center;gap:5px}
+.iconbtn{
+  background:rgba(255,255,255,.20); border:0; color:#fff; cursor:pointer;
+  width:46px;height:46px;border-radius:14px;font-size:20px;display:grid;place-items:center;
+  transition:transform .08s,background .15s;
+}
+.iconbtn:active{transform:scale(.92);background:rgba(255,255,255,.32)}
+main{max-width:680px;margin:0 auto;padding:16px}
+.screen{display:none;animation:fade .28s ease}
+.screen.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.card{background:var(--th-card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:15px;transition:background .35s ease}
+.card h2{margin:0 0 14px;font-size:17px;font-weight:800;display:flex;align-items:center;gap:7px;color:var(--th1)}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px;color:var(--muted)}
+input,select{
+  width:100%;padding:15px 15px;border:2px solid var(--line);border-radius:14px;
+  font-size:16px;background:#ffffff;color:var(--txt);outline:none;transition:border .15s,box-shadow .15s;
+  -webkit-appearance:none;appearance:none;
+}
+select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%231565c0' stroke-width='3' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 14px center;padding-right:44px;}
+input:focus,select:focus{border-color:var(--b2);box-shadow:0 0 0 4px rgba(30,136,229,.14)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  min-height:54px;padding:15px;border:0;border-radius:15px;font-size:16.5px;font-weight:800;color:#fff;cursor:pointer;
+  background:linear-gradient(135deg,var(--b1),var(--b2));box-shadow:0 8px 18px rgba(21,101,192,.30);
+  margin-top:14px;transition:transform .08s,box-shadow .15s;letter-spacing:.2px;
+}
+.btn:active{transform:translateY(1px) scale(.985);box-shadow:0 4px 12px rgba(21,101,192,.26)}
+.btn.green{background:linear-gradient(135deg,var(--g1),var(--g2));box-shadow:0 8px 18px rgba(46,125,50,.30)}
+.btn.orange{background:linear-gradient(135deg,var(--or1),var(--or2));box-shadow:0 8px 18px rgba(239,108,0,.30)}
+.btn.ghost{background:#fff;color:var(--b1);border:2px solid var(--b3);box-shadow:none}
+.btn.ghost:active{background:#eef5ff}
+.btn.sm{width:auto;min-height:0;padding:11px 16px;font-size:14px;margin:0;border-radius:12px}
+.btn.danger{background:linear-gradient(135deg,#c62828,#e53935);box-shadow:0 8px 18px rgba(211,47,47,.28)}
+
+.item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 8px;margin:0 -8px;
+  border-radius:14px;border-bottom:1px solid var(--line);transition:background .12s}
+.item:last-child{border-bottom:0}
+.item:active{background:#f1f6fd}
+.item .name{font-weight:700;font-size:15.5px}
+.item .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+.pill{display:inline-block;background:var(--th-soft);color:var(--th1);font-size:13px;font-weight:800;padding:5px 12px;border-radius:20px;white-space:nowrap}
+.pill.low{background:#fde8e8;color:var(--danger)}
+.empty{text-align:center;color:var(--muted);padding:30px 12px;font-size:14.5px;line-height:1.5}
+
+/* PDV / carrinho */
+.cart-line{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.cart-line:last-child{border-bottom:0}
+.cart-line .nm{flex:1;font-size:14.5px;font-weight:700}
+.qtybtn{width:44px;height:44px;border-radius:13px;border:0;background:#e9f2fe;font-size:24px;font-weight:800;color:var(--b1);
+  cursor:pointer;display:grid;place-items:center;transition:transform .08s,background .12s}
+.qtybtn:active{transform:scale(.9);background:#d7e8fc}
+.qtyval{min-width:30px;text-align:center;font-weight:800;font-size:17px}
+.total-bar{display:flex;justify-content:space-between;align-items:center;font-size:16px;font-weight:700;color:var(--muted);
+  margin-top:16px;padding-top:14px;border-top:2px dashed var(--line)}
+.total-bar span:last-child{font-size:26px;font-weight:900;color:var(--g1)}
+
+.stat{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat .box{background:linear-gradient(140deg,#fff,var(--th-soft));border:1px solid var(--th-soft);border-radius:16px;padding:16px 14px;text-align:center}
+.stat .box .v{font-size:25px;font-weight:900;color:var(--th1);line-height:1.1}
+.stat .box .k{font-size:12px;color:var(--muted);margin-top:5px;font-weight:600}
+
+nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:40;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--line);
+  display:flex;justify-content:space-around;gap:2px;
+  padding:8px 6px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -6px 22px rgba(20,60,120,.10);
+}
+nav button{background:none;border:0;cursor:pointer;color:var(--muted);font-size:11px;font-weight:700;
+  display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:16px;flex:1;
+  transition:background .15s,color .15s,transform .08s}
+nav button .ic{font-size:23px;transition:transform .15s}
+nav button:active{transform:scale(.93)}
+nav button.active{color:var(--th1);background:var(--th-soft)}
+nav button.active .ic{transform:translateY(-1px) scale(1.12)}
+
+#toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:#1f2c3a;color:#fff;padding:13px 20px;border-radius:26px;font-size:14.5px;font-weight:700;
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:60;box-shadow:0 10px 28px rgba(0,0,0,.30);max-width:90%}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+.modal-bg{position:fixed;inset:0;background:rgba(13,30,55,.55);z-index:80;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
+.modal-bg.show{display:flex}
+.modal{background:#fff;width:100%;max-width:680px;border-radius:26px 26px 0 0;padding:10px 18px calc(20px + env(safe-area-inset-bottom));max-height:90vh;overflow:auto;animation:up .28s cubic-bezier(.2,.9,.3,1)}
+.modal::before{content:'';display:block;width:44px;height:5px;border-radius:5px;background:#d3dcea;margin:6px auto 12px}
+@keyframes up{from{transform:translateY(60px)}to{transform:none}}
+.modal h3{margin:2px 0 10px;font-size:19px;font-weight:800}
+
+.auth-wrap{max-width:420px;margin:18px auto;text-align:center}
+.auth-logo{font-size:54px;margin-bottom:6px}
+#au-msg{font-size:13.5px;min-height:18px;margin-top:8px;font-weight:600}
+.divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:16px 0;font-weight:600}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+</style>
+</head>
+<body class="tab-vendas">
+
+<header>
+  <div class="row">
+    <div>
+      <h1>💰 Controle de Vendas</h1>
+      <div class="who" id="whoami">Não conectado</div>
+    </div>
+    <button class="iconbtn" id="authBtn" title="Conta" onclick="onAuthBtn()">👤</button>
+  </div>
+</header>
+
+<main>
+  <!-- ░░ VENDAS / PDV ░░ -->
+  <section class="screen active" id="s-vendas">
+    <div class="card">
+      <h2>🛒 Nova venda</h2>
+      <label>Adicionar produto</label>
+      <select id="pdv-prod"><option value="">— selecione —</option></select>
+      <button class="btn ghost" style="margin-top:10px" onclick="pdvAdd()">+ Adicionar ao carrinho</button>
+
+      <div id="cart" style="margin-top:14px"></div>
+
+      <label style="margin-top:14px">Cliente (opcional)</label>
+      <select id="pdv-cli"><option value="">— sem cliente —</option></select>
+
+      <div class="total-bar"><span>Total</span><span id="cart-total">R$ 0,00</span></div>
+      <button class="btn green" onclick="finalizarVenda()">✅ Finalizar venda</button>
+    </div>
+  </section>
+
+  <!-- ░░ PRODUTOS ░░ -->
+  <section class="screen" id="s-produtos">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0">📦 Produtos</h2>
+        <button class="btn sm green" onclick="openProd()">+ Novo</button>
+      </div>
+      <div id="prod-list" style="margin-top:8px"><div class="empty">Carregando…</div></div>
+    </div>
+  </section>
+
+  <!-- ░░ PLANTIO ░░ -->
+  <section class="screen" id="s-plantio">
+    <div class="card">
+      <h2>🌱 Plantio em cultivo</h2>
+      <div class="stat" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="box"><div class="v" id="pl-cultivo">0</div><div class="k">pés em cultivo</div></div>
+        <div class="box"><div class="v" id="pl-prontos">0</div><div class="k">prontos p/ colher</div></div>
+        <div class="box"><div class="v" id="pl-lotes">0</div><div class="k">lotes na bancada</div></div>
+      </div>
+      <button class="btn green" onclick="openPlantio()">+ Novo plantio</button>
+    </div>
+    <div class="card">
+      <h2>🌾 Prontos pra colher (por estufa)</h2>
+      <div id="pl-colher"><div class="empty">Carregando…</div></div>
+    </div>
+    <div class="card">
+      <h2>📋 Lotes</h2>
+      <div id="pl-list"><div class="empty">Carregando…</div></div>
+    </div>
+  </section>
+
+  <!-- ░░ CLIENTES ░░ -->
+  <section class="screen" id="s-clientes">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0">👥 Clientes</h2>
+        <button class="btn sm green" onclick="openCli()">+ Novo</button>
+      </div>
+      <div id="cli-list" style="margin-top:8px"><div class="empty">Carregando…</div></div>
+    </div>
+  </section>
+
+  <!-- ░░ RELATÓRIOS ░░ -->
+  <section class="screen" id="s-relatorios">
+    <div class="card">
+      <h2>📊 Relatórios</h2>
+      <div class="stat">
+        <div class="box"><div class="v" id="r-hoje">R$ 0,00</div><div class="k">Vendido hoje</div></div>
+        <div class="box"><div class="v" id="r-mes">R$ 0,00</div><div class="k">Vendido no mês</div></div>
+        <div class="box"><div class="v" id="r-qtd">0</div><div class="k">Vendas no mês</div></div>
+        <div class="box"><div class="v" id="r-ticket">R$ 0,00</div><div class="k">Ticket médio</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>🏆 Mais vendidos (mês)</h2>
+      <div id="r-top"><div class="empty">Sem dados ainda</div></div>
+    </div>
+    <div class="card">
+      <h2>🧾 Últimas vendas</h2>
+      <div id="r-ultimas"><div class="empty">Sem vendas ainda</div></div>
+    </div>
+  </section>
+
+  <!-- ░░ LOGIN (tela cheia quando deslogado) ░░ -->
+  <section class="screen" id="s-conta">
+    <div class="auth-wrap card">
+      <div class="auth-logo">💰</div>
+      <h2 style="margin:0 0 4px">Sua conta</h2>
+      <p class="muted small" style="margin:0 0 14px">Entre para salvar e sincronizar seus produtos, vendas e clientes em todos os aparelhos.</p>
+      <div id="conta-logado" style="display:none">
+        <p>Conectado como<br><b id="conta-email"></b></p>
+        <button class="btn danger" onclick="logout()">Sair da conta</button>
+      </div>
+      <div id="conta-deslogado">
+        <label style="text-align:left">E-mail</label>
+        <input id="au-email" type="email" inputmode="email" placeholder="voce@email.com" autocomplete="email">
+        <label style="text-align:left">Senha</label>
+        <input id="au-pass" type="password" placeholder="mínimo 6 caracteres" autocomplete="current-password">
+        <div id="au-msg"></div>
+        <button class="btn" onclick="loginEmail()">Entrar</button>
+        <button class="btn ghost" onclick="signupEmail()">Criar conta</button>
+        <div class="divider">ou</div>
+        <button class="btn ghost" onclick="loginGoogle()">Entrar com Google</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button class="active" data-s="vendas" onclick="goTo('vendas')"><span class="ic">🛒</span>Vender</button>
+  <button data-s="plantio" onclick="goTo('plantio')"><span class="ic">🌱</span>Plantio</button>
+  <button data-s="produtos" onclick="goTo('produtos')"><span class="ic">📦</span>Produtos</button>
+  <button data-s="clientes" onclick="goTo('clientes')"><span class="ic">👥</span>Clientes</button>
+  <button data-s="relatorios" onclick="goTo('relatorios')"><span class="ic">📊</span>Relatórios</button>
+</nav>
+
+<!-- Modal genérico -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal"></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Firebase (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ───────────────────────── UTIL ───────────────────────── */
+const $ = id => document.getElementById(id);
+function brl(n){ return 'R$ ' + (Number(n)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ───────────────────────── NAVEGAÇÃO ───────────────────────── */
+/* cor da barra de status do celular por aba (combina com o tema da tela) */
+const TEMA = {vendas:'#1565c0', plantio:'#2e7d32', produtos:'#e65100', clientes:'#6a1b9a', relatorios:'#00838f', conta:'#1565c0'};
+function goTo(s){
+  document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
+  const sec=$('s-'+s); if(sec) sec.classList.add('active');
+  document.body.className = 'tab-' + s;                       // troca o tema de cor da aba
+  const mt=document.querySelector('meta[name=theme-color]');
+  if(mt) mt.setAttribute('content', TEMA[s] || '#1565c0');    // pinta a barra de status
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.s===s));
+  if(s==='produtos') renderProdutos();
+  if(s==='plantio') renderPlantios();
+  if(s==='clientes') renderClientes();
+  if(s==='relatorios') renderRelatorios();
+  if(s==='vendas') refreshPdvSelects();
+  window.scrollTo(0,0);
+}
+function onAuthBtn(){ goTo('conta'); }
+
+/* ───────────────────────── MODAL ───────────────────────── */
+function openModal(html){ $('modal').innerHTML=html; $('modal-bg').classList.add('show'); }
+function closeModal(){ $('modal-bg').classList.remove('show'); }
+
+/* ───────────────────────── FIREBASE ───────────────────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyC_0iBUjI6QTT_HlpluMK5lv69vmyj1poI",
+  authDomain: "nft-alface.firebaseapp.com",
+  projectId: "nft-alface",
+  storageBucket: "nft-alface.firebasestorage.app",
+  messagingSenderId: "890385133210",
+  appId: "1:890385133210:web:e7fd6c9756e1f37b0cf923"
+};
+let FB_AUTH=null, FB_DB=null, FB_USER=null, FB_OK=false;
+let PRODUTOS=[], CLIENTES=[], VENDAS=[], PLANTIOS=[];
+let unsubP=null, unsubC=null, unsubV=null, unsubPl=null;
+
+try{
+  if(window.firebase && firebase.initializeApp){
+    firebase.initializeApp(firebaseConfig);
+    FB_AUTH=firebase.auth(); FB_DB=firebase.firestore();
+    FB_DB.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    FB_OK=true;
+    FB_AUTH.onAuthStateChanged(onAuth);
+  }
+}catch(e){ FB_OK=false; }
+
+function onAuth(u){
+  FB_USER=u;
+  updateAuthUI();
+  detach();
+  if(u){ attachListeners(); }
+  else { PRODUTOS=[]; CLIENTES=[]; VENDAS=[]; renderAll(); }
+}
+function updateAuthUI(){
+  const logged = !!FB_USER;
+  $('whoami').textContent = logged ? (FB_USER.email||'Conectado') : 'Não conectado';
+  $('authBtn').textContent = logged ? '✓' : '👤';
+  $('conta-logado').style.display = logged ? 'block' : 'none';
+  $('conta-deslogado').style.display = logged ? 'none' : 'block';
+  if(logged) $('conta-email').textContent = FB_USER.email||FB_USER.uid;
+}
+
+/* coleções do usuário — sob users/{uid}/... (mesmo namespace permitido pelas
+   regras do Firebase do projeto nft-alface; não colide com 'medicoes' da hidroponia) */
+function col(name){ return FB_DB.collection('users').doc(FB_USER.uid).collection(name); }
+
+function attachListeners(){
+  unsubP = col('produtos').orderBy('nome').onSnapshot(snap=>{
+    PRODUTOS = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderProdutos(); refreshPdvSelects();
+  }, fbErr);
+  unsubC = col('clientes').orderBy('nome').onSnapshot(snap=>{
+    CLIENTES = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderClientes(); refreshPdvSelects();
+  }, fbErr);
+  unsubV = col('vendas').orderBy('tsLocal','desc').limit(500).onSnapshot(snap=>{
+    VENDAS = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderRelatorios(); renderProdutos(); refreshPdvSelects(); // estoque depende das vendas
+  }, fbErr);
+  unsubPl = col('plantios').orderBy('tsLocal','desc').onSnapshot(snap=>{
+    PLANTIOS = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderPlantios(); renderProdutos(); refreshPdvSelects(); // estoque depende das colheitas
+  }, fbErr);
+}
+function detach(){ [unsubP,unsubC,unsubV,unsubPl].forEach(f=>f&&f()); unsubP=unsubC=unsubV=unsubPl=null; }
+function renderAll(){ renderProdutos(); renderClientes(); renderRelatorios(); renderPlantios(); refreshPdvSelects(); }
+function needLogin(){ if(!FB_OK||!FB_USER){ toast('Entre na sua conta 👇'); goTo('conta'); return true; } return false; }
+/* Mostra a causa real de um erro do Firebase em vez de engolir. */
+function fbErr(e){
+  const c=(e&&(e.code||e.message))||String(e);
+  console.error('Firebase erro:', c, e);
+  if(String(c).indexOf('permission-denied')>=0)
+    toast('🔒 Bloqueado pelas regras do Firebase. Preciso liberar as coleções (me avise).');
+  else if(String(c).indexOf('unauthenticated')>=0)
+    toast('Você precisa entrar na conta primeiro.');
+  else
+    toast('⚠️ Firebase: '+c);
+}
+
+/* ───────────────────────── AUTENTICAÇÃO ───────────────────────── */
+function authMsg(m,err){ const el=$('au-msg'); if(el){ el.textContent=m||''; el.style.color=err?'var(--danger)':'var(--g2)'; } }
+function traduzAuth(e){
+  const c=(e&&e.code)||'';
+  if(c.includes('wrong-password')||c.includes('invalid-credential')) return 'E-mail ou senha incorretos.';
+  if(c.includes('user-not-found')) return 'Conta não encontrada — toque em Criar conta.';
+  if(c.includes('email-already-in-use')) return 'Esse e-mail já tem conta — toque em Entrar.';
+  if(c.includes('invalid-email')) return 'E-mail inválido.';
+  if(c.includes('weak-password')) return 'Senha fraca (mínimo 6 caracteres).';
+  if(c.includes('popup-closed')||c.includes('cancelled-popup')) return 'Login cancelado.';
+  if(c.includes('network')) return 'Sem internet para entrar agora.';
+  return 'Não foi possível entrar ('+(c||'erro')+').';
+}
+function loginGoogle(){
+  if(!FB_OK){ toast('Sem conexão para login agora'); return; }
+  FB_AUTH.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .then(()=>{ toast('Bem-vindo! 👋'); goTo('vendas'); })
+    .catch(e=>authMsg(traduzAuth(e),true));
+}
+function loginEmail(){
+  if(!FB_OK){ toast('Sem conexão para login agora'); return; }
+  const em=($('au-email').value||'').trim(), pw=$('au-pass').value||'';
+  if(!em||!pw){ authMsg('Preencha e-mail e senha.',true); return; }
+  FB_AUTH.signInWithEmailAndPassword(em,pw)
+    .then(()=>{ toast('Bem-vindo! 👋'); goTo('vendas'); })
+    .catch(e=>authMsg(traduzAuth(e),true));
+}
+function signupEmail(){
+  if(!FB_OK){ toast('Sem conexão para login agora'); return; }
+  const em=($('au-email').value||'').trim(), pw=$('au-pass').value||'';
+  if(!em||!pw){ authMsg('Preencha e-mail e senha.',true); return; }
+  if(pw.length<6){ authMsg('A senha precisa ter ao menos 6 caracteres.',true); return; }
+  FB_AUTH.createUserWithEmailAndPassword(em,pw)
+    .then(()=>{ toast('Conta criada! 🎉'); goTo('vendas'); })
+    .catch(e=>authMsg(traduzAuth(e),true));
+}
+function logout(){ if(FB_AUTH) FB_AUTH.signOut().then(()=>toast('Você saiu')); }
+
+/* ───────────────────────── PRODUTOS ───────────────────────── */
+function openProd(p){
+  const ed = p||{};
+  openModal(`
+    <h3>${ed.id?'✏️ Editar produto':'📦 Novo produto'}</h3>
+    <label>Nome / variedade</label>
+    <input id="m-pnome" value="${esc(ed.nome||'')}" placeholder="Ex.: Alface crespa">
+    <label>Preço de venda (R$)</label>
+    <input id="m-ppreco" type="number" inputmode="decimal" step="0.01" value="${ed.preco!=null?ed.preco:''}" placeholder="0,00">
+    ${ed.id?`<p class="muted small" style="margin:12px 0 0">📦 Estoque atual: <b>${estoqueProduto(ed.id)} un</b><br>O estoque é calculado automaticamente pelo que foi colhido na aba 🌱 Plantio, menos o que já foi vendido.</p>`
+            :`<p class="muted small" style="margin:12px 0 0">O estoque deste produto virá das colheitas registradas na aba 🌱 Plantio.</p>`}
+    <button class="btn green" onclick="saveProd('${ed.id||''}')">Salvar</button>
+    ${ed.id?`<button class="btn danger" onclick="delProd('${ed.id}')">Excluir produto</button>`:''}
+    <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+  `);
+}
+function saveProd(id){
+  if(needLogin()) return;
+  const nome=($('m-pnome').value||'').trim();
+  const preco=parseFloat($('m-ppreco').value)||0;
+  if(!nome){ toast('Informe o nome'); return; }
+  const data={nome, preco};
+  const ref = id ? col('produtos').doc(id).set(data,{merge:true}) : col('produtos').add(data);
+  ref.then(()=>{ closeModal(); toast('Produto salvo ✅'); }).catch(fbErr);
+}
+function delProd(id){
+  if(!confirm('Excluir este produto?')) return;
+  col('produtos').doc(id).delete().then(()=>{ closeModal(); toast('Produto excluído'); });
+}
+/* estoque = total colhido (aba Plantio) − total vendido, por produto */
+function colhidoProduto(pid){ return PLANTIOS.filter(pl=>pl.colhido&&pl.produtoId===pid).reduce((s,pl)=>s+(pl.qtdColhida||0),0); }
+function vendidoProduto(pid){
+  let n=0; VENDAS.forEach(v=>(v.itens||[]).forEach(it=>{ if(it.id===pid) n+=it.qtd||0; })); return n;
+}
+function estoqueProduto(pid){ return colhidoProduto(pid)-vendidoProduto(pid); }
+
+function renderProdutos(){
+  const box=$('prod-list'); if(!box) return;
+  if(!FB_USER){ box.innerHTML='<div class="empty">Entre na conta para ver seus produtos.</div>'; return; }
+  if(!PRODUTOS.length){ box.innerHTML='<div class="empty">Nenhum produto. Toque em <b>+ Novo</b>.</div>'; return; }
+  box.innerHTML = PRODUTOS.map(p=>{
+    const est=estoqueProduto(p.id);
+    return `
+    <div class="item" onclick='openProd(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="cursor:pointer">
+      <div>
+        <div class="name">${esc(p.nome)}</div>
+        <div class="sub">${brl(p.preco)}</div>
+      </div>
+      <span class="pill ${est<=5?'low':''}">${est} un</span>
+    </div>`;}).join('');
+}
+
+/* ───────────────────────── CLIENTES ───────────────────────── */
+function openCli(c){
+  const ed=c||{};
+  openModal(`
+    <h3>${ed.id?'✏️ Editar cliente':'👥 Novo cliente'}</h3>
+    <label>Nome</label>
+    <input id="m-cnome" value="${esc(ed.nome||'')}" placeholder="Nome do cliente">
+    <label>Telefone / WhatsApp</label>
+    <input id="m-ctel" type="tel" inputmode="tel" value="${esc(ed.telefone||'')}" placeholder="(00) 00000-0000">
+    <button class="btn green" onclick="saveCli('${ed.id||''}')">Salvar</button>
+    ${ed.id?`<button class="btn danger" onclick="delCli('${ed.id}')">Excluir cliente</button>`:''}
+    <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+  `);
+}
+function saveCli(id){
+  if(needLogin()) return;
+  const nome=($('m-cnome').value||'').trim();
+  const telefone=($('m-ctel').value||'').trim();
+  if(!nome){ toast('Informe o nome'); return; }
+  const data={nome, telefone};
+  const ref = id ? col('clientes').doc(id).set(data,{merge:true}) : col('clientes').add(data);
+  ref.then(()=>{ closeModal(); toast('Cliente salvo ✅'); }).catch(fbErr);
+}
+function delCli(id){
+  if(!confirm('Excluir este cliente?')) return;
+  col('clientes').doc(id).delete().then(()=>{ closeModal(); toast('Cliente excluído'); });
+}
+function renderClientes(){
+  const box=$('cli-list'); if(!box) return;
+  if(!FB_USER){ box.innerHTML='<div class="empty">Entre na conta para ver seus clientes.</div>'; return; }
+  if(!CLIENTES.length){ box.innerHTML='<div class="empty">Nenhum cliente. Toque em <b>+ Novo</b>.</div>'; return; }
+  box.innerHTML = CLIENTES.map(c=>`
+    <div class="item" onclick='openCli(${JSON.stringify(c).replace(/'/g,"&#39;")})' style="cursor:pointer">
+      <div>
+        <div class="name">${esc(c.nome)}</div>
+        ${c.telefone?`<div class="sub">📱 ${esc(c.telefone)}</div>`:''}
+      </div>
+      <span class="muted">›</span>
+    </div>`).join('');
+}
+
+/* ───────────────────────── PLANTIO ─────────────────────────
+   Realidade das estufas: as mudas chegam com ~10 dias e vão DIRETO para a
+   bancada final, onde ficam até a colheita. Por isso não há berçário aqui —
+   o que conta é o tempo na bancada. A colheita (qtdColhida) vira estoque. */
+const ESTUFAS = ['Estufa 1','Estufa 2'];
+const BANCADA_PADRAO = 28; // dias na bancada final até a colheita (alface Brida; ajuste por estação)
+const STATUS_COR = {'Na bancada':'#1e88e5','Pronto p/ colher':'#ef6c00','Colhido':'#6b7787'};
+function statusPlantio(p){ if(p.colhido) return 'Colhido'; return diasPara(p.previsaoColheita)<=0 ? 'Pronto p/ colher' : 'Na bancada'; }
+
+function addDias(ds,n){ const d=ds?new Date(ds+'T00:00:00'):new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function diasPara(ds){ if(!ds) return 0; const h=new Date(); h.setHours(0,0,0,0); const a=new Date(ds+'T00:00:00'); return Math.round((a-h)/86400000); }
+
+function openPlantio(pl){
+  if(needLogin()) return;
+  const ed=pl||{};
+  if(!PRODUTOS.length){ toast('Cadastre um produto primeiro 📦'); goTo('produtos'); return; }
+  const hoje=new Date().toISOString().slice(0,10);
+  const entrada = ed.dataEntrada || ed.dataPlantio || hoje;
+  const dias = ed.diasBancada!=null ? ed.diasBancada : BANCADA_PADRAO;
+  const prev = ed.previsaoColheita || addDias(entrada, dias);
+  openModal(`
+    <h3>${ed.id?'✏️ Editar lote':'🌱 Novo plantio'}</h3>
+    <label>Estufa</label>
+    <select id="m-plestufa">${ESTUFAS.map(e=>`<option ${e===(ed.estufa||ESTUFAS[0])?'selected':''}>${e}</option>`).join('')}</select>
+    <label>Produto / variedade</label>
+    <select id="m-plprod">${PRODUTOS.map(p=>`<option value="${p.id}" ${p.id===ed.produtoId?'selected':''}>${esc(p.nome)}</option>`).join('')}</select>
+    <div class="grid2">
+      <div><label>Nº de pés</label><input id="m-plqtd" type="number" inputmode="numeric" value="${ed.qtdPlantada!=null?ed.qtdPlantada:''}" placeholder="Ex.: 200"></div>
+      <div><label>Dias na bancada</label><input id="m-pldias" type="number" inputmode="numeric" value="${dias}" oninput="plRecalcPrev()"></div>
+    </div>
+    <div class="grid2">
+      <div><label>Entrada na bancada</label><input id="m-plentrada" type="date" value="${entrada}" oninput="plRecalcPrev()"></div>
+      <div><label>Previsão colheita</label><input id="m-plprev" type="date" value="${prev}"></div>
+    </div>
+    <p class="muted small" style="margin:8px 0 0">Mudas chegam com ~10 dias e vão direto pra bancada final. A previsão é <b>entrada + dias na bancada</b> — aumente no frio, diminua no calor.</p>
+    ${ed.colhido?`<p class="muted small" style="margin-top:8px">✅ Colhido: <b>${ed.qtdColhida||0} un</b>${ed.dataColheita?' em '+new Date(ed.dataColheita).toLocaleDateString('pt-BR'):''}</p>`:''}
+    <button class="btn green" onclick="savePlantio('${ed.id||''}')">Salvar</button>
+    ${ed.id&&!ed.colhido?`<button class="btn" style="background:linear-gradient(135deg,#ef6c00,#fb8c00)" onclick="colher('${ed.id}')">🌾 Registrar colheita</button>`:''}
+    ${ed.id?`<button class="btn danger" onclick="delPlantio('${ed.id}')">Excluir lote</button>`:''}
+    <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+  `);
+}
+function plRecalcPrev(){
+  const e=$('m-plentrada'), d=$('m-pldias'), pv=$('m-plprev');
+  if(e&&d&&pv&&e.value){ pv.value = addDias(e.value, parseInt(d.value)||0); }
+}
+function savePlantio(id){
+  if(needLogin()) return;
+  const estufa=$('m-plestufa').value;
+  const produtoId=$('m-plprod').value;
+  const p=PRODUTOS.find(x=>x.id===produtoId);
+  const qtdPlantada=parseInt($('m-plqtd').value)||0;
+  const diasBancada=parseInt($('m-pldias').value)||BANCADA_PADRAO;
+  const dataEntrada=$('m-plentrada').value;
+  const previsaoColheita=$('m-plprev').value || addDias(dataEntrada,diasBancada);
+  if(!produtoId){ toast('Escolha o produto'); return; }
+  if(qtdPlantada<=0){ toast('Informe o nº de pés'); return; }
+  const data={estufa, produtoId, produtoNome:p?p.nome:'', qtdPlantada, diasBancada, dataEntrada, previsaoColheita};
+  if(!id){ Object.assign(data,{colhido:false, qtdColhida:0, tsLocal:Date.now(), ts:firebase.firestore.FieldValue.serverTimestamp()}); }
+  const ref = id ? col('plantios').doc(id).set(data,{merge:true}) : col('plantios').add(data);
+  ref.then(()=>{ closeModal(); toast('Plantio salvo ✅'); }).catch(fbErr);
+}
+function colher(id){
+  const pl=PLANTIOS.find(x=>x.id===id); if(!pl) return;
+  const r=prompt('Quantos pés foram colhidos? (entram no estoque de '+(pl.produtoNome||'')+')', pl.qtdPlantada||0);
+  if(r===null) return;
+  const q=parseInt(r)||0;
+  if(q<=0){ toast('Quantidade inválida'); return; }
+  col('plantios').doc(id).set({colhido:true, qtdColhida:q, fase:'Colhido', dataColheita:Date.now()},{merge:true})
+    .then(()=>{ closeModal(); toast('🌾 '+q+' un colhidas e somadas ao estoque!'); }).catch(()=>toast('Não consegui registrar'));
+}
+function delPlantio(id){
+  if(!confirm('Excluir este lote de plantio?')) return;
+  col('plantios').doc(id).delete().then(()=>{ closeModal(); toast('Lote excluído'); });
+}
+function renderPlantios(){
+  const box=$('pl-list'); if(!box) return;
+  const ativos=PLANTIOS.filter(p=>!p.colhido);
+  const cultivo=ativos.reduce((s,p)=>s+(p.qtdPlantada||0),0);
+  const prontos=ativos.filter(p=>diasPara(p.previsaoColheita)<=0).reduce((s,p)=>s+(p.qtdPlantada||0),0);
+  if($('pl-cultivo')) $('pl-cultivo').textContent=cultivo;
+  if($('pl-prontos')) $('pl-prontos').textContent=prontos;
+  if($('pl-lotes')) $('pl-lotes').textContent=ativos.length;
+  renderColheita();
+  if(!FB_USER){ box.innerHTML='<div class="empty">Entre na conta para ver seus plantios.</div>'; return; }
+  if(!PLANTIOS.length){ box.innerHTML='<div class="empty">Nenhum plantio ainda. Toque em <b>+ Novo plantio</b>.</div>'; return; }
+  const ord=[...PLANTIOS].sort((a,b)=>{ if(a.colhido!==b.colhido) return a.colhido?1:-1; return (a.previsaoColheita||'').localeCompare(b.previsaoColheita||''); });
+  box.innerHTML = ord.map(p=>{
+    const st=statusPlantio(p);
+    const cor=STATUS_COR[st]||'#6b7787';
+    let info;
+    if(p.colhido){ info='colhido · '+(p.qtdColhida||0)+' un'; }
+    else{ const d=diasPara(p.previsaoColheita); info = d>0?('colhe em '+d+' dia(s)') : (d===0?'colhe hoje 🌾':('atrasado '+(-d)+' dia(s)')); }
+    return `<div class="item" onclick='openPlantio(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="cursor:pointer">
+      <div>
+        <div class="name">${esc(p.produtoNome||'—')} · ${p.qtdPlantada||0} pés</div>
+        <div class="sub">${esc(p.estufa||'')} · <span style="color:${cor};font-weight:700">${st}</span> · ${info}</div>
+      </div>
+      ${p.colhido?'<span class="pill">✓</span>':`<button class="btn sm" style="background:linear-gradient(135deg,#ef6c00,#fb8c00)" onclick="event.stopPropagation();colher('${p.id}')">🌾</button>`}
+    </div>`;
+  }).join('');
+}
+
+/* Relatório de prontos pra colher, agrupado por estufa */
+function renderColheita(){
+  const box=$('pl-colher'); if(!box) return;
+  if(!FB_USER){ box.innerHTML='<div class="empty">Entre na conta.</div>'; return; }
+  const prontos=PLANTIOS.filter(p=>!p.colhido && diasPara(p.previsaoColheita)<=0);
+  if(!prontos.length){ box.innerHTML='<div class="empty">Nenhum lote pronto pra colher agora 🌱</div>'; return; }
+  const grupos={};
+  prontos.forEach(p=>{ const e=p.estufa||'Sem estufa'; (grupos[e]=grupos[e]||[]).push(p); });
+  const nomes=Object.keys(grupos).sort((a,b)=>{ const ia=ESTUFAS.indexOf(a), ib=ESTUFAS.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
+  box.innerHTML = nomes.map(e=>{
+    const lotes=grupos[e].sort((a,b)=>(a.previsaoColheita||'').localeCompare(b.previsaoColheita||''));
+    const totPes=lotes.reduce((s,p)=>s+(p.qtdPlantada||0),0);
+    const linhas=lotes.map(p=>{
+      const d=diasPara(p.previsaoColheita);
+      const quando = d===0?'pronto hoje 🌾':('pronto há '+(-d)+' dia(s)');
+      return `<div class="item" onclick='openPlantio(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="cursor:pointer">
+        <div><div class="name">${esc(p.produtoNome||'—')} · ${p.qtdPlantada||0} pés</div>
+        <div class="sub" style="color:#ef6c00;font-weight:700">${quando}</div></div>
+        <button class="btn sm" style="background:linear-gradient(135deg,#ef6c00,#fb8c00)" onclick="event.stopPropagation();colher('${p.id}')">🌾 Colher</button>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:2px solid var(--line);margin-bottom:2px">
+        <b>🏠 ${esc(e)}</b><span class="pill" style="background:#fff3e0;color:#ef6c00">${totPes} pés · ${lotes.length} lote(s)</span>
+      </div>
+      ${linhas}
+    </div>`;
+  }).join('');
+}
+
+/* ───────────────────────── PDV / VENDAS ───────────────────────── */
+let CART=[]; // {id,nome,preco,qtd}
+function refreshPdvSelects(){
+  const sp=$('pdv-prod'); const sc=$('pdv-cli');
+  if(sp){ const cur=sp.value;
+    sp.innerHTML='<option value="">— selecione —</option>'+PRODUTOS.map(p=>{
+      const est=estoqueProduto(p.id);
+      return `<option value="${p.id}">${esc(p.nome)} — ${brl(p.preco)} · ${est} em estoque</option>`;
+    }).join('');
+    sp.value=cur;
+  }
+  if(sc){ const cur=sc.value;
+    sc.innerHTML='<option value="">— sem cliente —</option>'+CLIENTES.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+    sc.value=cur;
+  }
+}
+function pdvAdd(){
+  const id=$('pdv-prod').value; if(!id){ toast('Escolha um produto'); return; }
+  const p=PRODUTOS.find(x=>x.id===id); if(!p) return;
+  const ex=CART.find(x=>x.id===id);
+  if(ex) ex.qtd++; else CART.push({id:p.id, nome:p.nome, preco:p.preco, qtd:1});
+  renderCart();
+}
+function cartQty(id,d){
+  const it=CART.find(x=>x.id===id); if(!it) return;
+  it.qtd+=d; if(it.qtd<=0) CART=CART.filter(x=>x.id!==id);
+  renderCart();
+}
+function renderCart(){
+  const box=$('cart');
+  if(!CART.length){ box.innerHTML='<div class="empty" style="padding:14px">Carrinho vazio</div>'; $('cart-total').textContent=brl(0); return; }
+  box.innerHTML = CART.map(it=>`
+    <div class="cart-line">
+      <div class="nm">${esc(it.nome)}<div class="sub muted">${brl(it.preco)} cada</div></div>
+      <button class="qtybtn" onclick="cartQty('${it.id}',-1)">−</button>
+      <span class="qtyval">${it.qtd}</span>
+      <button class="qtybtn" onclick="cartQty('${it.id}',1)">+</button>
+      <div style="min-width:74px;text-align:right;font-weight:700">${brl(it.preco*it.qtd)}</div>
+    </div>`).join('');
+  $('cart-total').textContent = brl(cartTotal());
+}
+function cartTotal(){ return CART.reduce((s,it)=>s+it.preco*it.qtd,0); }
+function finalizarVenda(){
+  if(needLogin()) return;
+  if(!CART.length){ toast('Carrinho vazio'); return; }
+  const cliId=$('pdv-cli').value;
+  const cli=CLIENTES.find(c=>c.id===cliId);
+  const venda={
+    itens: CART.map(it=>({id:it.id, nome:it.nome, preco:it.preco, qtd:it.qtd})),
+    total: cartTotal(),
+    qtdItens: CART.reduce((s,it)=>s+it.qtd,0),
+    clienteId: cliId||null,
+    clienteNome: cli?cli.nome:null,
+    ts: firebase.firestore.FieldValue.serverTimestamp(),
+    tsLocal: Date.now()
+  };
+  // estoque é derivado das colheitas − vendas, então basta registrar a venda
+  col('vendas').add(venda).then(()=>{
+    toast('🎉 Venda de '+brl(venda.total)+' registrada!');
+    CART=[]; renderCart(); $('pdv-cli').value='';
+  }).catch(()=>toast('Não consegui registrar a venda'));
+}
+
+/* ───────────────────────── RELATÓRIOS ───────────────────────── */
+function renderRelatorios(){
+  if(!$('r-hoje')) return;
+  if(!FB_USER){
+    $('r-hoje').textContent=brl(0); $('r-mes').textContent=brl(0);
+    $('r-qtd').textContent='0'; $('r-ticket').textContent=brl(0);
+    $('r-top').innerHTML='<div class="empty">Entre na conta para ver relatórios.</div>';
+    $('r-ultimas').innerHTML='<div class="empty">Entre na conta para ver as vendas.</div>';
+    return;
+  }
+  const now=new Date();
+  const ini=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  const iniMes=new Date(now.getFullYear(),now.getMonth(),1).getTime();
+  let hoje=0, mes=0, qtdMes=0; const top={};
+  VENDAS.forEach(v=>{
+    const t=v.tsLocal||0;
+    if(t>=ini) hoje+=v.total||0;
+    if(t>=iniMes){ mes+=v.total||0; qtdMes++; (v.itens||[]).forEach(it=>{ top[it.nome]=(top[it.nome]||0)+it.qtd; }); }
+  });
+  $('r-hoje').textContent=brl(hoje);
+  $('r-mes').textContent=brl(mes);
+  $('r-qtd').textContent=qtdMes;
+  $('r-ticket').textContent=brl(qtdMes?mes/qtdMes:0);
+
+  const tops=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  $('r-top').innerHTML = tops.length ? tops.map(([n,q],i)=>`
+    <div class="item"><div class="name">${['🥇','🥈','🥉','4º','5º'][i]} ${esc(n)}</div><span class="pill">${q} un</span></div>`).join('')
+    : '<div class="empty">Sem vendas no mês</div>';
+
+  $('r-ultimas').innerHTML = VENDAS.length ? VENDAS.slice(0,12).map(v=>{
+    const d=new Date(v.tsLocal||0);
+    const ds=d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="item">
+      <div><div class="name">${brl(v.total)}</div>
+      <div class="sub">${ds} · ${v.qtdItens||0} item(s)${v.clienteNome?' · '+esc(v.clienteNome):''}</div></div>
+      <button class="btn sm danger" onclick="delVenda('${v.id}')">🗑</button>
+    </div>`;
+  }).join('') : '<div class="empty">Nenhuma venda ainda</div>';
+}
+function delVenda(id){
+  if(!confirm('Excluir esta venda? (não devolve o estoque)')) return;
+  col('vendas').doc(id).delete().then(()=>toast('Venda excluída'));
+}
+
+/* ───────────────────────── INIT ───────────────────────── */
+renderCart();
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>

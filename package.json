@@ -1,0 +1,9 @@
+{
+  "name": "controle-de-vendas",
+  "version": "1.0.0",
+  "description": "PWA de controle de vendas para hidroponia (alface NFT): plantio, estoque, vendas, clientes e relatórios.",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run.js"
+  }
+}
