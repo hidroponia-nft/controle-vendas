@@ -2,7 +2,7 @@
    O app sempre carrega a versao mais nova quando ha internet e continua
    funcionando offline com a ultima versao baixada. Evita cache teimoso no iOS. */
 
-const CACHE = 'vendas-app-v7';
+const CACHE = 'vendas-app-v8';
 const CORE = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (e) => {

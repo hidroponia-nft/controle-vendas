@@ -53,7 +53,7 @@ function suite(n){ console.log('\\n── ' + n + ' ──'); }
 function ok(cond,msg){ if(cond){ __pass++; console.log('  \\u2705 '+msg); }
                        else { __fail++; console.log('  \\u274C FALHOU: '+msg); } }
 function eq(a,b,msg){ ok(a===b, msg + (a===b?'':'  (esperado '+JSON.stringify(b)+', veio '+JSON.stringify(a)+')')); }
-function reset(){ PRODUTOS=[]; CLIENTES=[]; VENDAS=[]; PLANTIOS=[]; CART=[]; FB_USER={uid:'teste'}; }
+function reset(){ PRODUTOS=[]; CLIENTES=[]; VENDAS=[]; PLANTIOS=[]; CUSTOS=[]; CART=[]; FB_USER={uid:'teste'}; REL_PERIODO='tudo'; CUSTO_PERIODO='tudo'; }
 function hojeMais(n){ return addDias(new Date().toISOString().slice(0,10), n); }
 `;
 
@@ -109,6 +109,51 @@ PRODUTOS=[{id:'p1',nome:'Alface Brida',preco:3.5},{id:'p2',nome:'Alface Roxa',pr
 CART=[{id:'p1',nome:'Alface Brida',preco:3.5,qtd:3},{id:'p2',nome:'Alface Roxa',preco:4,qtd:2}];
 eq(cartTotal(), 3.5*3 + 4*2, 'total do carrinho = 18.5');
 eq(brl(18.5), 'R$ 18,50', 'formatação em reais');
+
+/* ===== FASE: CUSTOS — tipo padrão por categoria ===== */
+suite('Custos · classificação produção x operacional');
+eq(tipoPadrao('Fertilizantes'),'Produção','fertilizante = produção (margem bruta)');
+eq(tipoPadrao('Mudas'),'Produção','mudas = produção');
+eq(tipoPadrao('Energia'),'Operacional','energia = operacional (só margem líquida)');
+eq(tipoPadrao('Combustível'),'Operacional','combustível = operacional');
+
+/* ===== FASE: CUSTOS — período e totais ===== */
+suite('Custos · período (semana exclui antigos) e render');
+reset();
+CUSTOS=[
+  {id:'x1',categoria:'Energia',valor:300,tipo:'Operacional',data:hojeMais(-1)},
+  {id:'x2',categoria:'Fertilizantes',valor:200,tipo:'Produção',data:hojeMais(-2)},
+  {id:'x3',categoria:'Combustível',valor:100,tipo:'Operacional',data:hojeMais(-100)}
+];
+eq(custosNoPeriodo(0).length, 3, 'período "tudo" pega os 3 custos');
+eq(custosNoPeriodo(periodoIni('semana')).length, 2, 'semana exclui o custo de 100 dias atrás');
+CUSTO_PERIODO='tudo'; renderCustos();
+eq(document.getElementById('cu-total').textContent, brl(600), 'total de custos = 600');
+eq(document.getElementById('cu-prod').textContent, brl(200), 'custos de produção = 200');
+
+/* ===== FASE: RELATÓRIO — margem bruta, líquida e por cliente ===== */
+suite('Relatório · margens e por cliente');
+reset();
+PRODUTOS=[{id:'p1',nome:'Alface Brida',preco:5}];
+VENDAS=[
+  {itens:[{id:'p1',nome:'Alface Brida',preco:5,qtd:100}],total:500,qtdItens:100,clienteNome:'Mercado A',tsLocal:Date.now()},
+  {itens:[{id:'p1',nome:'Alface Brida',preco:5,qtd:40}], total:200,qtdItens:40, clienteNome:'Feira B', tsLocal:Date.now()}
+];
+CUSTOS=[
+  {id:'c1',categoria:'Fertilizantes',valor:100,tipo:'Produção',data:hojeMais(0)},
+  {id:'c2',categoria:'Energia',valor:150,tipo:'Operacional',data:hojeMais(0)}
+];
+REL_PERIODO='tudo'; renderRelatorios();
+eq(document.getElementById('r-receita').textContent, brl(700), 'faturamento = 700');
+eq(document.getElementById('r-custos').textContent, brl(250), 'custos totais = 250');
+eq(document.getElementById('m-lbruto').textContent, brl(600), 'lucro bruto = 700 - 100 (produção)');
+eq(document.getElementById('m-lliquido').textContent, brl(450), 'lucro líquido = 700 - 250 (todos)');
+eq(document.getElementById('m-mbruta').textContent, '85.7%', 'margem bruta = 600/700');
+eq(document.getElementById('m-mliquida').textContent, '64.3%', 'margem líquida = 450/700');
+var rc=document.getElementById('r-clientes').innerHTML;
+ok(rc.includes('Mercado A') && rc.includes('Feira B'), 'lista os dois clientes');
+ok(rc.indexOf('Mercado A') < rc.indexOf('Feira B'), 'quem mais comprou aparece primeiro');
+ok(rc.includes(brl(500)) && rc.includes(brl(200)), 'mostra o total comprado por cliente');
 `;
 
 vm.createContext(sandbox);

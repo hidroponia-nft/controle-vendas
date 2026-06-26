@@ -31,6 +31,7 @@ body.tab-vendas    {--th1:#1565c0; --th2:#1e88e5; --th-bg:#e7f0fb; --th-card:#f1
 body.tab-plantio   {--th1:#2e7d32; --th2:#43a047; --th-bg:#e4f3e6; --th-card:#eef9ef; --th-soft:#dff1e2;}
 body.tab-produtos  {--th1:#e65100; --th2:#fb8c00; --th-bg:#fdeedd; --th-card:#fff6ec; --th-soft:#ffe7cf;}
 body.tab-clientes  {--th1:#6a1b9a; --th2:#8e24aa; --th-bg:#f0e4fb; --th-card:#f8f0fe; --th-soft:#eddcfb;}
+body.tab-custos    {--th1:#c2185b; --th2:#ec407a; --th-bg:#fce4ec; --th-card:#fff1f5; --th-soft:#fbd6e3;}
 body.tab-relatorios{--th1:#00838f; --th2:#00acc1; --th-bg:#def4f6; --th-card:#eefafb; --th-soft:#d6f0f3;}
 body.tab-conta     {--th1:#1565c0; --th2:#1e88e5; --th-bg:#e7f0fb; --th-card:#f1f7ff; --th-soft:#e2edfc;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -132,10 +133,10 @@ nav{
   display:flex;justify-content:space-around;gap:2px;
   padding:8px 6px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -6px 22px rgba(20,60,120,.10);
 }
-nav button{background:none;border:0;cursor:pointer;color:var(--muted);font-size:11px;font-weight:700;
-  display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:16px;flex:1;
+nav button{background:none;border:0;cursor:pointer;color:var(--muted);font-size:10px;font-weight:700;white-space:nowrap;
+  display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px;border-radius:14px;flex:1;
   transition:background .15s,color .15s,transform .08s}
-nav button .ic{font-size:23px;transition:transform .15s}
+nav button .ic{font-size:21px;transition:transform .15s}
 nav button:active{transform:scale(.93)}
 nav button.active{color:var(--th1);background:var(--th-soft)}
 nav button.active .ic{transform:translateY(-1px) scale(1.12)}
@@ -157,6 +158,18 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
 #au-msg{font-size:13.5px;min-height:18px;margin-top:8px;font-weight:600}
 .divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:16px 0;font-weight:600}
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+
+/* seletor de período (segmentado) */
+.seg{display:flex;gap:6px;background:var(--th-soft);padding:5px;border-radius:14px}
+.seg button{flex:1;border:0;background:transparent;color:var(--th1);font-weight:800;font-size:14px;
+  padding:11px 6px;border-radius:10px;cursor:pointer;transition:background .15s,box-shadow .15s}
+.seg button.on{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.seg button:active{transform:scale(.97)}
+
+/* linhas de margem (chave: valor) */
+.kv{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
+.kv:last-of-type{border-bottom:0}
+.kv b{font-weight:800;white-space:nowrap}
 </style>
 </head>
 <body class="tab-vendas">
@@ -233,19 +246,65 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
     </div>
   </section>
 
+  <!-- ░░ CUSTOS ░░ -->
+  <section class="screen" id="s-custos">
+    <div class="card">
+      <h2>💸 Custos operacionais</h2>
+      <div class="seg" id="cu-seg">
+        <button data-p="semana" onclick="setPeriodoCusto('semana')">Semana</button>
+        <button data-p="mes" class="on" onclick="setPeriodoCusto('mes')">Mês</button>
+        <button data-p="tudo" onclick="setPeriodoCusto('tudo')">Tudo</button>
+      </div>
+      <div class="stat" style="margin-top:12px">
+        <div class="box"><div class="v" id="cu-total">R$ 0,00</div><div class="k">Total no período</div></div>
+        <div class="box"><div class="v" id="cu-prod">R$ 0,00</div><div class="k">Custos de produção</div></div>
+      </div>
+      <button class="btn" onclick="openCusto()">+ Novo custo</button>
+    </div>
+    <div class="card">
+      <h2>📂 Por categoria</h2>
+      <div id="cu-cat"><div class="empty">Sem custos no período</div></div>
+    </div>
+    <div class="card">
+      <h2>🧾 Lançamentos</h2>
+      <div id="cu-list"><div class="empty">Nenhum custo lançado</div></div>
+    </div>
+  </section>
+
   <!-- ░░ RELATÓRIOS ░░ -->
   <section class="screen" id="s-relatorios">
     <div class="card">
       <h2>📊 Relatórios</h2>
-      <div class="stat">
-        <div class="box"><div class="v" id="r-hoje">R$ 0,00</div><div class="k">Vendido hoje</div></div>
-        <div class="box"><div class="v" id="r-mes">R$ 0,00</div><div class="k">Vendido no mês</div></div>
-        <div class="box"><div class="v" id="r-qtd">0</div><div class="k">Vendas no mês</div></div>
+      <div class="seg" id="rel-seg">
+        <button data-p="semana" class="on" onclick="setPeriodo('semana')">Semana</button>
+        <button data-p="mes" onclick="setPeriodo('mes')">Mês</button>
+        <button data-p="tudo" onclick="setPeriodo('tudo')">Tudo</button>
+      </div>
+      <div class="stat" style="margin-top:12px">
+        <div class="box"><div class="v" id="r-receita">R$ 0,00</div><div class="k">Faturamento</div></div>
+        <div class="box"><div class="v" id="r-custos">R$ 0,00</div><div class="k">Custos</div></div>
+        <div class="box"><div class="v" id="r-vendas">0</div><div class="k">Vendas</div></div>
         <div class="box"><div class="v" id="r-ticket">R$ 0,00</div><div class="k">Ticket médio</div></div>
       </div>
     </div>
     <div class="card">
-      <h2>🏆 Mais vendidos (mês)</h2>
+      <h2>💹 Margem (lucro)</h2>
+      <div class="kv"><span>Faturamento</span><b id="m-receita">R$ 0,00</b></div>
+      <div class="kv"><span>− Custos de produção</span><b id="m-cprod">R$ 0,00</b></div>
+      <div class="kv"><span><b>= Lucro bruto</b></span><b id="m-lbruto">R$ 0,00</b></div>
+      <div class="kv"><span>− Despesas operacionais</span><b id="m-coper">R$ 0,00</b></div>
+      <div class="kv"><span><b>= Lucro líquido</b></span><b id="m-lliquido">R$ 0,00</b></div>
+      <div class="stat" style="margin-top:14px">
+        <div class="box"><div class="v" id="m-mbruta">0%</div><div class="k">Margem bruta</div></div>
+        <div class="box"><div class="v" id="m-mliquida">0%</div><div class="k">Margem líquida</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>👥 Por cliente</h2>
+      <div id="r-clientes"><div class="empty">Sem dados</div></div>
+    </div>
+    <div class="card">
+      <h2>🏆 Mais vendidos</h2>
       <div id="r-top"><div class="empty">Sem dados ainda</div></div>
     </div>
     <div class="card">
@@ -284,6 +343,7 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
   <button data-s="plantio" onclick="goTo('plantio')"><span class="ic">🌱</span>Plantio</button>
   <button data-s="produtos" onclick="goTo('produtos')"><span class="ic">📦</span>Produtos</button>
   <button data-s="clientes" onclick="goTo('clientes')"><span class="ic">👥</span>Clientes</button>
+  <button data-s="custos" onclick="goTo('custos')"><span class="ic">💸</span>Custos</button>
   <button data-s="relatorios" onclick="goTo('relatorios')"><span class="ic">📊</span>Relatórios</button>
 </nav>
 
@@ -307,7 +367,7 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;',
 
 /* ───────────────────────── NAVEGAÇÃO ───────────────────────── */
 /* cor da barra de status do celular por aba (combina com o tema da tela) */
-const TEMA = {vendas:'#1565c0', plantio:'#2e7d32', produtos:'#e65100', clientes:'#6a1b9a', relatorios:'#00838f', conta:'#1565c0'};
+const TEMA = {vendas:'#1565c0', plantio:'#2e7d32', produtos:'#e65100', clientes:'#6a1b9a', custos:'#c2185b', relatorios:'#00838f', conta:'#1565c0'};
 function goTo(s){
   document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
   const sec=$('s-'+s); if(sec) sec.classList.add('active');
@@ -318,6 +378,7 @@ function goTo(s){
   if(s==='produtos') renderProdutos();
   if(s==='plantio') renderPlantios();
   if(s==='clientes') renderClientes();
+  if(s==='custos') renderCustos();
   if(s==='relatorios') renderRelatorios();
   if(s==='vendas') refreshPdvSelects();
   window.scrollTo(0,0);
@@ -338,8 +399,8 @@ const firebaseConfig = {
   appId: "1:890385133210:web:e7fd6c9756e1f37b0cf923"
 };
 let FB_AUTH=null, FB_DB=null, FB_USER=null, FB_OK=false;
-let PRODUTOS=[], CLIENTES=[], VENDAS=[], PLANTIOS=[];
-let unsubP=null, unsubC=null, unsubV=null, unsubPl=null;
+let PRODUTOS=[], CLIENTES=[], VENDAS=[], PLANTIOS=[], CUSTOS=[];
+let unsubP=null, unsubC=null, unsubV=null, unsubPl=null, unsubCu=null;
 
 try{
   if(window.firebase && firebase.initializeApp){
@@ -356,7 +417,7 @@ function onAuth(u){
   updateAuthUI();
   detach();
   if(u){ attachListeners(); }
-  else { PRODUTOS=[]; CLIENTES=[]; VENDAS=[]; renderAll(); }
+  else { PRODUTOS=[]; CLIENTES=[]; VENDAS=[]; PLANTIOS=[]; CUSTOS=[]; renderAll(); }
 }
 function updateAuthUI(){
   const logged = !!FB_USER;
@@ -388,9 +449,13 @@ function attachListeners(){
     PLANTIOS = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderPlantios(); renderProdutos(); refreshPdvSelects(); // estoque depende das colheitas
   }, fbErr);
+  unsubCu = col('custos').orderBy('tsLocal','desc').onSnapshot(snap=>{
+    CUSTOS = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderCustos(); renderRelatorios(); // margem depende dos custos
+  }, fbErr);
 }
-function detach(){ [unsubP,unsubC,unsubV,unsubPl].forEach(f=>f&&f()); unsubP=unsubC=unsubV=unsubPl=null; }
-function renderAll(){ renderProdutos(); renderClientes(); renderRelatorios(); renderPlantios(); refreshPdvSelects(); }
+function detach(){ [unsubP,unsubC,unsubV,unsubPl,unsubCu].forEach(f=>f&&f()); unsubP=unsubC=unsubV=unsubPl=unsubCu=null; }
+function renderAll(){ renderProdutos(); renderClientes(); renderRelatorios(); renderPlantios(); renderCustos(); refreshPdvSelects(); }
 function needLogin(){ if(!FB_OK||!FB_USER){ toast('Entre na sua conta 👇'); goTo('conta'); return true; } return false; }
 /* Mostra a causa real de um erro do Firebase em vez de engolir. */
 function fbErr(e){
@@ -731,36 +796,68 @@ function finalizarVenda(){
   }).catch(()=>toast('Não consegui registrar a venda'));
 }
 
+/* ───────────────────────── PERÍODO (semana/mês/tudo) ───────────────────────── */
+let REL_PERIODO='semana', CUSTO_PERIODO='mes';
+function periodoIni(p){
+  const n=new Date();
+  if(p==='hoje')   return new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime();
+  if(p==='semana') return Date.now()-7*86400000;        // últimos 7 dias
+  if(p==='mes')    return new Date(n.getFullYear(),n.getMonth(),1).getTime();
+  return 0;                                             // 'tudo'
+}
+function periodoLabel(p){ return p==='semana'?'na semana':p==='mes'?'no mês':'no período'; }
+function dataParaTs(d){ return d ? new Date(d+'T12:00:00').getTime() : 0; }
+function custosNoPeriodo(ini){ return CUSTOS.filter(c=> dataParaTs(c.data) >= ini); }
+function setPeriodo(p){ REL_PERIODO=p; document.querySelectorAll('#rel-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderRelatorios(); }
+function setPeriodoCusto(p){ CUSTO_PERIODO=p; document.querySelectorAll('#cu-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderCustos(); }
+function corLucro(el,v){ if(el) el.style.color = v>=0 ? '#2e7d32' : '#c62828'; }
+
 /* ───────────────────────── RELATÓRIOS ───────────────────────── */
 function renderRelatorios(){
-  if(!$('r-hoje')) return;
+  if(!$('r-receita')) return;
+  const setTxt=(id,t)=>{ const e=$(id); if(e) e.textContent=t; };
   if(!FB_USER){
-    $('r-hoje').textContent=brl(0); $('r-mes').textContent=brl(0);
-    $('r-qtd').textContent='0'; $('r-ticket').textContent=brl(0);
-    $('r-top').innerHTML='<div class="empty">Entre na conta para ver relatórios.</div>';
-    $('r-ultimas').innerHTML='<div class="empty">Entre na conta para ver as vendas.</div>';
+    ['r-receita','r-custos','r-ticket','m-receita','m-cprod','m-lbruto','m-coper','m-lliquido'].forEach(id=>setTxt(id,brl(0)));
+    setTxt('r-vendas','0'); setTxt('m-mbruta','0%'); setTxt('m-mliquida','0%');
+    ['r-clientes','r-top','r-ultimas'].forEach(id=>{ const e=$(id); if(e) e.innerHTML='<div class="empty">Entre na conta para ver relatórios.</div>'; });
     return;
   }
-  const now=new Date();
-  const ini=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
-  const iniMes=new Date(now.getFullYear(),now.getMonth(),1).getTime();
-  let hoje=0, mes=0, qtdMes=0; const top={};
-  VENDAS.forEach(v=>{
-    const t=v.tsLocal||0;
-    if(t>=ini) hoje+=v.total||0;
-    if(t>=iniMes){ mes+=v.total||0; qtdMes++; (v.itens||[]).forEach(it=>{ top[it.nome]=(top[it.nome]||0)+it.qtd; }); }
+  const ini=periodoIni(REL_PERIODO);
+  let receita=0, nVendas=0; const top={}, porCliente={};
+  const vendasP = VENDAS.filter(v=>(v.tsLocal||0)>=ini);
+  vendasP.forEach(v=>{
+    receita+=v.total||0; nVendas++;
+    (v.itens||[]).forEach(it=>{ top[it.nome]=(top[it.nome]||0)+it.qtd; });
+    const nome=v.clienteNome||'Sem cliente';
+    porCliente[nome]=porCliente[nome]||{total:0,n:0};
+    porCliente[nome].total+=v.total||0; porCliente[nome].n++;
   });
-  $('r-hoje').textContent=brl(hoje);
-  $('r-mes').textContent=brl(mes);
-  $('r-qtd').textContent=qtdMes;
-  $('r-ticket').textContent=brl(qtdMes?mes/qtdMes:0);
+  let cProd=0, cOper=0;
+  custosNoPeriodo(ini).forEach(c=>{ if(c.tipo==='Produção') cProd+=c.valor||0; else cOper+=c.valor||0; });
+  const custosTot=cProd+cOper;
+  const lucroBruto=receita-cProd, lucroLiq=receita-custosTot;
+  const mBruta=receita?lucroBruto/receita*100:0, mLiq=receita?lucroLiq/receita*100:0;
+
+  setTxt('r-receita',brl(receita)); setTxt('r-custos',brl(custosTot));
+  setTxt('r-vendas',nVendas); setTxt('r-ticket',brl(nVendas?receita/nVendas:0));
+  setTxt('m-receita',brl(receita)); setTxt('m-cprod',brl(cProd));
+  setTxt('m-lbruto',brl(lucroBruto)); setTxt('m-coper',brl(cOper)); setTxt('m-lliquido',brl(lucroLiq));
+  setTxt('m-mbruta',mBruta.toFixed(1)+'%'); setTxt('m-mliquida',mLiq.toFixed(1)+'%');
+  corLucro($('m-lbruto'),lucroBruto); corLucro($('m-lliquido'),lucroLiq);
+  corLucro($('m-mbruta'),mBruta); corLucro($('m-mliquida'),mLiq);
+
+  const arrCli=Object.entries(porCliente).sort((a,b)=>b[1].total-a[1].total);
+  $('r-clientes').innerHTML = arrCli.length ? arrCli.map(([nome,o])=>`
+    <div class="item"><div><div class="name">${esc(nome)}</div><div class="sub">${o.n} compra(s)</div></div>
+      <span class="pill">${brl(o.total)}</span></div>`).join('')
+    : '<div class="empty">Sem vendas '+periodoLabel(REL_PERIODO)+'</div>';
 
   const tops=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,5);
   $('r-top').innerHTML = tops.length ? tops.map(([n,q],i)=>`
     <div class="item"><div class="name">${['🥇','🥈','🥉','4º','5º'][i]} ${esc(n)}</div><span class="pill">${q} un</span></div>`).join('')
-    : '<div class="empty">Sem vendas no mês</div>';
+    : '<div class="empty">Sem vendas '+periodoLabel(REL_PERIODO)+'</div>';
 
-  $('r-ultimas').innerHTML = VENDAS.length ? VENDAS.slice(0,12).map(v=>{
+  $('r-ultimas').innerHTML = vendasP.length ? vendasP.slice(0,12).map(v=>{
     const d=new Date(v.tsLocal||0);
     const ds=d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
     return `<div class="item">
@@ -768,11 +865,93 @@ function renderRelatorios(){
       <div class="sub">${ds} · ${v.qtdItens||0} item(s)${v.clienteNome?' · '+esc(v.clienteNome):''}</div></div>
       <button class="btn sm danger" onclick="delVenda('${v.id}')">🗑</button>
     </div>`;
-  }).join('') : '<div class="empty">Nenhuma venda ainda</div>';
+  }).join('') : '<div class="empty">Nenhuma venda '+periodoLabel(REL_PERIODO)+'</div>';
 }
 function delVenda(id){
   if(!confirm('Excluir esta venda? (não devolve o estoque)')) return;
   col('vendas').doc(id).delete().then(()=>toast('Venda excluída'));
+}
+
+/* ───────────────────────── CUSTOS OPERACIONAIS ─────────────────────────
+   Cada custo tem categoria e um TIPO: "Produção" (mudas, fertilizantes) entra na
+   margem bruta; "Operacional" (energia, combustível, funcionário...) entra só na
+   margem líquida. Assim dá pra calcular as duas margens de verdade. */
+const CAT_CUSTO = ['Energia','Combustível','Funcionário','Fertilizantes','Mudas','Manutenção','Outros'];
+const CAT_ICON = {'Energia':'⚡','Combustível':'⛽','Funcionário':'👷','Fertilizantes':'🧪','Mudas':'🌱','Manutenção':'🔧','Outros':'📦'};
+const CAT_TIPO = {'Fertilizantes':'Produção','Mudas':'Produção'};
+function tipoPadrao(cat){ return CAT_TIPO[cat] || 'Operacional'; }
+function custoTipoAuto(){ const t=$('m-utipo'); if(t) t.value=tipoPadrao($('m-ucat').value); }
+
+function openCusto(c){
+  if(needLogin()) return;
+  const ed=c||{};
+  const hoje=new Date().toISOString().slice(0,10);
+  const tipo=ed.tipo||tipoPadrao(ed.categoria||CAT_CUSTO[0]);
+  openModal(`
+    <h3>${ed.id?'✏️ Editar custo':'💸 Novo custo'}</h3>
+    <label>Categoria</label>
+    <select id="m-ucat" onchange="custoTipoAuto()">${CAT_CUSTO.map(k=>`<option value="${k}" ${k===(ed.categoria||CAT_CUSTO[0])?'selected':''}>${CAT_ICON[k]} ${k}</option>`).join('')}</select>
+    <label>Descrição (opcional)</label>
+    <input id="m-udesc" value="${esc(ed.descricao||'')}" placeholder="Ex.: Conta de luz de junho">
+    <div class="grid2">
+      <div><label>Valor (R$)</label><input id="m-uvalor" type="number" inputmode="decimal" step="0.01" value="${ed.valor!=null?ed.valor:''}" placeholder="0,00"></div>
+      <div><label>Data</label><input id="m-udata" type="date" value="${ed.data||hoje}"></div>
+    </div>
+    <label>Tipo de custo</label>
+    <select id="m-utipo">
+      <option ${tipo==='Produção'?'selected':''}>Produção</option>
+      <option ${tipo==='Operacional'?'selected':''}>Operacional</option>
+    </select>
+    <p class="muted small" style="margin:8px 0 0"><b>Produção</b> (mudas, fertilizantes) abate na margem <b>bruta</b>. <b>Operacional</b> (energia, combustível, funcionário) abate só na margem <b>líquida</b>.</p>
+    <button class="btn green" onclick="saveCusto('${ed.id||''}')">Salvar</button>
+    ${ed.id?`<button class="btn danger" onclick="delCusto('${ed.id}')">Excluir custo</button>`:''}
+    <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+  `);
+}
+function saveCusto(id){
+  if(needLogin()) return;
+  const categoria=$('m-ucat').value;
+  const descricao=($('m-udesc').value||'').trim();
+  const valor=parseFloat(String($('m-uvalor').value).replace(',','.'))||0;
+  const data=$('m-udata').value;
+  const tipo=$('m-utipo').value;
+  if(valor<=0){ toast('Informe o valor do custo'); return; }
+  const dados={categoria, descricao, valor, data, tipo};
+  if(!id){ dados.tsLocal=Date.now(); dados.ts=firebase.firestore.FieldValue.serverTimestamp(); }
+  const ref = id ? col('custos').doc(id).set(dados,{merge:true}) : col('custos').add(dados);
+  ref.then(()=>{ closeModal(); toast('Custo salvo ✅'); }).catch(fbErr);
+}
+function delCusto(id){
+  if(!confirm('Excluir este custo?')) return;
+  col('custos').doc(id).delete().then(()=>{ closeModal(); toast('Custo excluído'); });
+}
+function renderCustos(){
+  if(!$('cu-total')) return;
+  if(!FB_USER){
+    $('cu-total').textContent=brl(0); $('cu-prod').textContent=brl(0);
+    $('cu-cat').innerHTML='<div class="empty">Entre na conta para ver os custos.</div>';
+    $('cu-list').innerHTML='<div class="empty">Entre na conta para lançar custos.</div>';
+    return;
+  }
+  const ini=periodoIni(CUSTO_PERIODO);
+  const lista=custosNoPeriodo(ini).sort((a,b)=>dataParaTs(b.data)-dataParaTs(a.data));
+  let total=0, prod=0; const cat={};
+  lista.forEach(c=>{ total+=c.valor||0; if(c.tipo==='Produção') prod+=c.valor||0; cat[c.categoria]=(cat[c.categoria]||0)+(c.valor||0); });
+  $('cu-total').textContent=brl(total);
+  $('cu-prod').textContent=brl(prod);
+
+  const cats=Object.entries(cat).sort((a,b)=>b[1]-a[1]);
+  $('cu-cat').innerHTML = cats.length ? cats.map(([k,v])=>`
+    <div class="item"><div class="name">${CAT_ICON[k]||'•'} ${esc(k)}</div><span class="pill">${brl(v)}</span></div>`).join('')
+    : '<div class="empty">Sem custos '+periodoLabel(CUSTO_PERIODO)+'</div>';
+
+  $('cu-list').innerHTML = lista.length ? lista.map(c=>{
+    const d=c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'';
+    return `<div class="item" onclick='openCusto(${JSON.stringify(c).replace(/'/g,"&#39;")})' style="cursor:pointer">
+      <div><div class="name">${CAT_ICON[c.categoria]||'•'} ${esc(c.descricao||c.categoria)}</div>
+      <div class="sub">${esc(c.categoria)} · ${esc(c.tipo||'')} · ${d}</div></div>
+      <span class="pill">${brl(c.valor)}</span></div>`;
+  }).join('') : '<div class="empty">Nenhum custo lançado. Toque em <b>+ Novo custo</b>.</div>';
 }
 
 /* ───────────────────────── INIT ───────────────────────── */
