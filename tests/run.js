@@ -278,6 +278,25 @@ PERDA_PERIODO='tudo'; renderPerdas();
 eq(document.getElementById('pd-perda').textContent,500,'tudo: inclui o passado antigo (perda 500)');
 PERDA_PERIODO='semana'; renderPerdas();
 eq(document.getElementById('pd-perda').textContent,0,'semana: exclui o passado que morreu há muito');
+
+/* ===== FASE: EXPORTAR — linhas das planilhas ===== */
+suite('Exportar · linhas para o Excel');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+VENDAS=[{itens:[{id:'p1',nome:'Brida',preco:5,qtd:40}],total:200,data:'2026-07-01',tsLocal:new Date('2026-07-01T12:00:00').getTime(),clienteNome:'Mercado A'}];
+var lv=linhasVendasExport();
+eq(lv.length,2,'cabeçalho + 1 linha de item');
+eq(lv[0][0],'Data','1ª coluna é Data');
+eq(lv[1][0],'2026-07-01','usa a data escolhida da venda');
+eq(lv[1][4],200,'total do item = preço × qtd');
+eq(lv[1][5],'Mercado A','traz o cliente');
+// resumo: perda entra pelo plantio passado
+PLANTIOS=[{id:'a',produtoId:'p1',produtoNome:'Brida',qtdPlantada:100,dataEntrada:hojeMais(-50)}];
+VENDAS=[{itens:[{id:'p1',nome:'Brida',preco:5,qtd:60}],total:300,data:hj,tsLocal:Date.now()}];
+var rz={}; linhasResumoExport().forEach(r=>rz[r[0]]=r[1]);
+eq(rz['Faturamento (R$)'],300,'resumo: faturamento = 300');
+eq(rz['Perda total (un)'],40,'resumo: perda = 100 plantado − 60 vendido');
+eq(rz['Taxa de perda (%)'],40,'resumo: taxa de perda = 40%');
 `;
 
 vm.createContext(sandbox);

@@ -2,3 +2,8 @@ node_modules/
 .DS_Store
 *.log
 .claude/settings.local.json
+
+# Programa da planilha automática (nunca versionar a chave nem a planilha gerada)
+planilha-pc/serviceAccountKey.json
+planilha-pc/node_modules/
+planilha-pc/*.xlsx

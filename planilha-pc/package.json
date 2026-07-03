@@ -1,0 +1,13 @@
+{
+  "name": "planilha-hidroponia",
+  "version": "1.0.0",
+  "description": "Puxa os dados do app Controle de Vendas (Firebase) e gera uma planilha Excel automaticamente.",
+  "private": true,
+  "scripts": {
+    "start": "node exportar.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "xlsx": "^0.18.5"
+  }
+}

@@ -1,0 +1,69 @@
+============================================================
+  PLANILHA AUTOMATICA - Controle de Vendas (Hidroponia)
+============================================================
+
+O que isto faz:
+  Puxa TODOS os dados do seu app (vendas, plantios, custos) direto do
+  Firebase e gera um Excel chamado "controle-vendas.xlsx" nesta pasta,
+  com as abas: Vendas, Plantios, Custos, Perdas e Resumo.
+
+
+------------------------------------------------------------
+PASSO 1 - Baixar a chave do Firebase (so precisa fazer UMA vez)
+------------------------------------------------------------
+  1. Abra:  https://console.firebase.google.com/
+  2. Entre com a sua conta Google (a mesma do app) e clique no
+     projeto "nft-alface".
+  3. No canto superior esquerdo, clique na engrenagem (Configuracoes)
+     e depois em "Configuracoes do projeto".
+  4. Clique na aba "Contas de servico".
+  5. Clique no botao "Gerar nova chave privada" -> "Gerar chave".
+  6. Vai baixar um arquivo .json. RENOMEIE ele para:
+
+         serviceAccountKey.json
+
+  7. Coloque esse arquivo AQUI, dentro desta pasta (planilha-pc),
+     do lado deste LEIA-ME.
+
+  IMPORTANTE: essa chave e secreta (e a "senha-mestra" do seu banco).
+  Nao envie pra ninguem e nao publique. Ela ja esta protegida pra nao
+  ir pro GitHub.
+
+
+------------------------------------------------------------
+PASSO 2 - Precisa ter o Node instalado
+------------------------------------------------------------
+  Se voce ja roda os testes do app, ja tem o Node.
+  Para conferir: abra o Prompt de Comando e digite:  node -v
+  Se aparecer um numero (ex.: v20.x), esta ok.
+  Se nao tiver, baixe em: https://nodejs.org (versao LTS).
+
+
+------------------------------------------------------------
+PASSO 3 - Atualizar a planilha
+------------------------------------------------------------
+  Modo 1 (na hora, quando voce quiser):
+     -> De 2 cliques em "Atualizar-Planilha.bat".
+        Na primeira vez ele instala os componentes (demora um pouco).
+        No fim, o arquivo "controle-vendas.xlsx" fica pronto nesta pasta.
+
+  Modo 2 (sozinho, todo dia):
+     -> De 2 cliques em "Agendar-Todo-Dia.bat".
+        A partir dai a planilha se atualiza sozinha todo dia as 07:00
+        (o computador precisa estar ligado nesse horario).
+     -> Para desligar isso depois, use "Cancelar-Agendamento.bat".
+
+
+------------------------------------------------------------
+DICAS
+------------------------------------------------------------
+  - Quer um atalho na Area de Trabalho? Clique com o botao direito em
+    "Atualizar-Planilha.bat" -> Enviar para -> Area de trabalho.
+  - Quer mudar o horario do agendamento? Abra "Agendar-Todo-Dia.bat"
+    no Bloco de Notas e troque 07:00 pelo horario que quiser.
+  - Usa outro e-mail no app? Abra "exportar.js" no Bloco de Notas e
+    troque o EMAIL no topo do arquivo.
+  - A planilha e sempre refeita do zero com os dados mais recentes.
+    Se voce mexer nela na mao, salve com OUTRO nome, senao a proxima
+    atualizacao sobrescreve.
+============================================================

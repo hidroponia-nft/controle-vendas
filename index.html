@@ -334,6 +334,11 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
       <h2>🧾 Últimas vendas</h2>
       <div id="r-ultimas"><div class="empty">Sem vendas ainda</div></div>
     </div>
+    <div class="card">
+      <h2>📥 Exportar / Enviar</h2>
+      <p class="muted small" style="margin:0 0 10px">Baixa uma planilha Excel com abas de Vendas, Plantios, Custos, Perdas e um Resumo. Dá pra abrir no Excel/Google Planilhas e enviar por WhatsApp ou e-mail.</p>
+      <button class="btn" onclick="exportarExcel()">📊 Exportar Excel (.xlsx)</button>
+    </div>
   </section>
 
   <!-- ░░ PERDAS ░░ -->
@@ -934,6 +939,96 @@ function finalizarVenda(){
     CART=[]; renderCart(); $('pdv-cli').value='';
     if($('pdv-data')) $('pdv-data').value=new Date().toISOString().slice(0,10);
   }).catch(()=>toast('Não consegui registrar a venda'));
+}
+
+/* ───────────────────────── EXPORTAR EXCEL ─────────────────────────
+   Gera um .xlsx com abas Vendas/Plantios/Custos/Perdas/Resumo a partir dos
+   dados já carregados. Usa a biblioteca SheetJS (CDN); se estiver offline,
+   cai para CSV das vendas. As funções *Export() são puras (testáveis). */
+function dataDaVenda(v){ return v.data || (v.tsLocal? new Date(v.tsLocal).toISOString().slice(0,10) : ''); }
+function linhasVendasExport(){
+  const rows=[['Data','Produto','Qtd','Preço uni','Total item','Cliente']];
+  [...VENDAS].sort((a,b)=>(a.tsLocal||0)-(b.tsLocal||0)).forEach(v=>{
+    const d=dataDaVenda(v);
+    (v.itens||[]).forEach(it=>rows.push([d, it.nome, it.qtd||0, it.preco||0, (it.preco||0)*(it.qtd||0), v.clienteNome||'']));
+  });
+  return rows;
+}
+function linhasPlantiosExport(){
+  const rows=[['Produto','Estufa','Bandejas','Pés plantados','Entrada','Previsão','Status','Vendido','Perda']];
+  const aloc=alocacaoPorPlantio();
+  [...PLANTIOS].sort((a,b)=>String(a.dataEntrada||'').localeCompare(String(b.dataEntrada||''))).forEach(p=>{
+    const x=aloc[p.id]||{vendido:0,sobra:p.qtdPlantada||0,passado:plantioPassado(p)};
+    rows.push([p.produtoNome||'', p.estufa||'', bandejasDe(p), p.qtdPlantada||0, p.dataEntrada||'', p.previsaoColheita||'', statusPlantio(p), x.vendido||0, x.passado?(x.sobra||0):0]);
+  });
+  return rows;
+}
+function linhasCustosExport(){
+  const rows=[['Data','Categoria','Descrição','Tipo','Valor']];
+  [...CUSTOS].sort((a,b)=>dataParaTs(a.data)-dataParaTs(b.data)).forEach(c=>rows.push([c.data||'', c.categoria||'', c.descricao||'', c.tipo||'', c.valor||0]));
+  CUSTOS_FIXOS.forEach(c=>rows.push(['(fixo mensal)', c.categoria||'', c.descricao||'', c.tipo||'', c.valor||0]));
+  return rows;
+}
+function linhasPerdasExport(){
+  const rows=[['Produto','Plantado','Vendido','Perda','Taxa %']];
+  PRODUTOS.forEach(pr=>{
+    let plantado=0,vend=0,perda=0;
+    alocaVendas(pr.id).forEach(x=>{ if(x.passado){ plantado+=x.plantado; vend+=x.vendido; perda+=x.sobra; } });
+    if(plantado>0) rows.push([pr.nome, plantado, vend, perda, Math.round(perda/plantado*100)]);
+  });
+  return rows;
+}
+function linhasResumoExport(){
+  const fat=VENDAS.reduce((s,v)=>s+(v.total||0),0);
+  const nV=VENDAS.length;
+  const unVend=VENDAS.reduce((s,v)=>s+(v.itens||[]).reduce((a,it)=>a+(it.qtd||0),0),0);
+  const custosVar=CUSTOS.reduce((s,c)=>s+(c.valor||0),0);
+  const custosFix=fixosMensalTotal();
+  const plantadoTot=PLANTIOS.reduce((s,p)=>s+(p.qtdPlantada||0),0);
+  let perdaUn=0, plantadoPassado=0;
+  PRODUTOS.forEach(pr=>alocaVendas(pr.id).forEach(x=>{ if(x.passado){ perdaUn+=x.sobra; plantadoPassado+=x.plantado; } }));
+  const taxa=plantadoPassado?Math.round(perdaUn/plantadoPassado*100):0;
+  return [
+    ['Resumo geral',''],
+    ['Faturamento (R$)', fat],
+    ['Nº de vendas', nV],
+    ['Ticket médio (R$)', nV?Math.round(fat/nV*100)/100:0],
+    ['Unidades vendidas', unVend],
+    ['Custos variáveis (R$)', custosVar],
+    ['Custos fixos por mês (R$)', custosFix],
+    ['Total plantado (un)', plantadoTot],
+    ['Perda total (un)', perdaUn],
+    ['Taxa de perda (%)', taxa]
+  ];
+}
+function baixarArquivo(nome, conteudo, tipo){
+  const blob=new Blob([conteudo],{type:tipo});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=nome; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+function exportarCSV(){
+  const csv=linhasVendasExport().map(r=>r.map(c=>{
+    const s=String(c==null?'':c); return /[",;\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s;
+  }).join(';')).join('\n');
+  baixarArquivo('vendas-'+new Date().toISOString().slice(0,10)+'.csv', '﻿'+csv, 'text/csv;charset=utf-8');
+  toast('Sem internet: exportei as vendas em CSV 📄');
+}
+function carregarScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+async function exportarExcel(){
+  if(needLogin()) return;
+  toast('Gerando planilha…');
+  let XLSX=window.XLSX;
+  if(!XLSX){ try{ await carregarScript('https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'); XLSX=window.XLSX; }catch(e){ exportarCSV(); return; } }
+  if(!XLSX){ exportarCSV(); return; }
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhasVendasExport()), 'Vendas');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhasPlantiosExport()), 'Plantios');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhasCustosExport()), 'Custos');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhasPerdasExport()), 'Perdas');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhasResumoExport()), 'Resumo');
+  XLSX.writeFile(wb, 'controle-vendas-'+new Date().toISOString().slice(0,10)+'.xlsx');
+  toast('Planilha gerada ✅');
 }
 
 /* ───────────────────────── PERÍODO (semana/mês/tudo) ───────────────────────── */
