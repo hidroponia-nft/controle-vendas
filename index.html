@@ -122,6 +122,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;appearance
   cursor:pointer;display:grid;place-items:center;transition:transform .08s,background .12s}
 .qtybtn:active{transform:scale(.9);background:#d7e8fc}
 .qtyval{min-width:30px;text-align:center;font-weight:800;font-size:17px}
+.qtyinput{width:64px;height:48px;text-align:center;font-size:18px;font-weight:800;color:var(--b1);
+  border:2px solid var(--line);border-radius:13px;background:#f4f9ff;padding:0}
+.qtyinput:focus{border-color:var(--b2);background:#fff}
+.qtyinput::-webkit-outer-spin-button,.qtyinput::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.qtydel{width:40px;height:40px;border-radius:12px;border:0;background:#fdecea;color:var(--danger);font-size:17px;cursor:pointer}
 .total-bar{display:flex;justify-content:space-between;align-items:center;font-size:16px;font-weight:700;color:var(--muted);
   margin-top:16px;padding-top:14px;border-top:2px dashed var(--line)}
 .total-bar span:last-child{font-size:26px;font-weight:900;color:var(--g1)}
@@ -875,21 +880,25 @@ function pdvAdd(){
   if(ex) ex.qtd++; else CART.push({id:p.id, nome:p.nome, preco:p.preco, qtd:1});
   renderCart();
 }
-function cartQty(id,d){
+/* digita a quantidade direto (sem ficar clicando + / −) */
+function cartSetQty(id,v){
   const it=CART.find(x=>x.id===id); if(!it) return;
-  it.qtd+=d; if(it.qtd<=0) CART=CART.filter(x=>x.id!==id);
+  const q=parseInt(v)||0;
+  if(q<=0){ CART=CART.filter(x=>x.id!==id); }
+  else it.qtd=q;
   renderCart();
 }
+function cartDel(id){ CART=CART.filter(x=>x.id!==id); renderCart(); }
 function renderCart(){
   const box=$('cart');
   if(!CART.length){ box.innerHTML='<div class="empty" style="padding:14px">Carrinho vazio</div>'; $('cart-total').textContent=brl(0); return; }
   box.innerHTML = CART.map(it=>`
     <div class="cart-line">
       <div class="nm">${esc(it.nome)}<div class="sub muted">${brl(it.preco)} cada</div></div>
-      <button class="qtybtn" onclick="cartQty('${it.id}',-1)">−</button>
-      <span class="qtyval">${it.qtd}</span>
-      <button class="qtybtn" onclick="cartQty('${it.id}',1)">+</button>
+      <input class="qtyinput" type="number" inputmode="numeric" min="1" value="${it.qtd}"
+             onchange="cartSetQty('${it.id}',this.value)" onfocus="this.select()">
       <div style="min-width:74px;text-align:right;font-weight:700">${brl(it.preco*it.qtd)}</div>
+      <button class="qtydel" onclick="cartDel('${it.id}')" title="Remover">🗑</button>
     </div>`).join('');
   $('cart-total').textContent = brl(cartTotal());
 }

@@ -193,12 +193,14 @@ document.getElementById('pdv-prod').value='p2';
 pdvAdd();
 eq(noCarrinho('p2'),1,'dá pra vender produto sem tamanho final (menores)');
 document.getElementById('pdv-prod').value='p1';
-pdvAdd(); pdvAdd(); pdvAdd();
-eq(noCarrinho('p1'),3,'dá pra vender além do pronto (2 pés por embalagem)');
-cartQty('p1',1);
-eq(noCarrinho('p1'),4,'botão + não trava a quantidade');
-cartQty('p1',-1);
-eq(noCarrinho('p1'),3,'botão − funciona normal');
+pdvAdd();
+eq(noCarrinho('p1'),1,'adiciona ao carrinho');
+cartSetQty('p1',40);
+eq(noCarrinho('p1'),40,'digita a quantidade direto (40)');
+cartSetQty('p1',7);
+eq(noCarrinho('p1'),7,'digitar de novo ajusta (7)');
+cartDel('p1');
+eq(noCarrinho('p1'),0,'lixeira remove do carrinho');
 
 /* ===== FASE: VENDAS — alerta vermelho de produtos sem tamanho final ===== */
 suite('Vendas · alerta de sem estoque');
