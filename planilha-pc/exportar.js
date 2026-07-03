@@ -13,12 +13,24 @@ const admin = require('firebase-admin');
 const XLSX = require('xlsx');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 /* ─── CONFIG ─── */
 const EMAIL = 'jullien.freitas@gmail.com';   // conta do app (troque se usar outro e-mail)
 const VIDA_UTIL_DIAS = 45;                    // depois disso o plantio é "passado" (mesma regra do app)
 const PES_POR_BANDEJA = 200;
-const ARQUIVO_SAIDA = path.join(__dirname, 'controle-vendas.xlsx');
+/* salva na Área de Trabalho (procura o caminho certo, inclusive OneDrive) */
+function pastaDesktop(){
+  const cands = [
+    path.join(os.homedir(),'OneDrive','Desktop'),
+    path.join(os.homedir(),'OneDrive','Área de Trabalho'),
+    path.join(os.homedir(),'Desktop'),
+    path.join(os.homedir(),'Área de Trabalho')
+  ];
+  for(const c of cands){ if(fs.existsSync(c)) return c; }
+  return __dirname; // se não achar, salva na própria pasta
+}
+const ARQUIVO_SAIDA = path.join(pastaDesktop(), 'controle-vendas.xlsx');
 
 /* ─── CHAVE ─── */
 const keyPath = path.join(__dirname, 'serviceAccountKey.json');
