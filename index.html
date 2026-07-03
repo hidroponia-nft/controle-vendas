@@ -83,6 +83,10 @@ input,select{
 select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%231565c0' stroke-width='3' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
   background-repeat:no-repeat;background-position:right 14px center;padding-right:44px;}
 input:focus,select:focus{border-color:var(--b2);box-shadow:0 0 0 4px rgba(30,136,229,.14)}
+/* Sem setinhas de subir/descer nos campos de numero — digita direto (teclado numerico no celular) */
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;appearance:none;margin:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
 .btn{
