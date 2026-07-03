@@ -224,6 +224,19 @@ renderPlantios();
 var pl=document.getElementById('pl-list').innerHTML;
 ok(pl.includes('plantado há 10 dia'),'mostra há quanto tempo está plantado');
 ok(pl.includes('faltam 18 dia'),'mostra quantos dias faltam pra colher');
+
+/* ===== FASE: PLANTIO — bandejas (cada bandeja = 200 pés) ===== */
+suite('Plantio · bandejas (200 pés cada)');
+eq(bandejasDe({qtdBandejas:3}),3,'usa o nº de bandejas quando existe');
+eq(bandejasDe({qtdPlantada:600}),3,'converte plantio antigo: 600 pés = 3 bandejas');
+eq(bandejasDe({qtdPlantada:200}),1,'200 pés = 1 bandeja');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+PLANTIOS=[{id:'a',estufa:'Estufa 1',produtoId:'p1',produtoNome:'Brida',qtdBandejas:3,qtdPlantada:600,colhido:false,dataEntrada:hojeMais(-5),previsaoColheita:hojeMais(10)}];
+renderPlantios();
+var plb=document.getElementById('pl-list').innerHTML;
+ok(plb.includes('3 bandeja'),'lista mostra as bandejas');
+ok(plb.includes('600 pés'),'lista mostra os pés equivalentes');
 `;
 
 vm.createContext(sandbox);

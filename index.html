@@ -226,7 +226,7 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
       <div class="stat" style="grid-template-columns:1fr 1fr 1fr">
         <div class="box"><div class="v" id="pl-cultivo">0</div><div class="k">pés em cultivo</div></div>
         <div class="box"><div class="v" id="pl-prontos">0</div><div class="k">prontos p/ colher</div></div>
-        <div class="box"><div class="v" id="pl-lotes">0</div><div class="k">lotes na bancada</div></div>
+        <div class="box"><div class="v" id="pl-lotes">0</div><div class="k">plantios na bancada</div></div>
       </div>
       <button class="btn green" onclick="openPlantio()">+ Novo plantio</button>
     </div>
@@ -235,7 +235,7 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
       <div id="pl-colher"><div class="empty">Carregando…</div></div>
     </div>
     <div class="card">
-      <h2>📋 Lotes</h2>
+      <h2>📋 Plantios</h2>
       <div id="pl-list"><div class="empty">Carregando…</div></div>
     </div>
   </section>
@@ -633,12 +633,15 @@ function renderClientes(){
    o que conta é o tempo na bancada. A colheita (qtdColhida) vira estoque. */
 const ESTUFAS = ['Estufa 1','Estufa 2'];
 const BANCADA_PADRAO = 28; // dias na bancada final até a colheita (alface Brida; ajuste por estação)
+const PES_POR_BANDEJA = 200; // cada bandeja = 200 pés plantados
 const STATUS_COR = {'Na bancada':'#1e88e5','Pronto p/ colher':'#ef6c00','Colhido':'#6b7787'};
+/* nº de bandejas do plantio (converte pés antigos automaticamente) */
+function bandejasDe(p){ return p.qtdBandejas!=null ? p.qtdBandejas : Math.round((p.qtdPlantada||0)/PES_POR_BANDEJA); }
 function statusPlantio(p){ if(p.colhido) return 'Colhido'; return diasPara(p.previsaoColheita)<=0 ? 'Pronto p/ colher' : 'Na bancada'; }
 
 function addDias(ds,n){ const d=ds?new Date(ds+'T00:00:00'):new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
 function diasPara(ds){ if(!ds) return 0; const h=new Date(); h.setHours(0,0,0,0); const a=new Date(ds+'T00:00:00'); return Math.round((a-h)/86400000); }
-/* há quantos dias o lote está plantado (nunca negativo) */
+/* há quantos dias o plantio está na bancada (nunca negativo) */
 function diasDesde(ds){ return ds ? Math.max(0, -diasPara(ds)) : 0; }
 
 function openPlantio(pl){
@@ -650,13 +653,17 @@ function openPlantio(pl){
   const dias = ed.diasBancada!=null ? ed.diasBancada : BANCADA_PADRAO;
   const prev = ed.previsaoColheita || addDias(entrada, dias);
   openModal(`
-    <h3>${ed.id?'✏️ Editar lote':'🌱 Novo plantio'}</h3>
+    <h3>${ed.id?'✏️ Editar plantio':'🌱 Novo plantio'}</h3>
     <label>Estufa</label>
     <select id="m-plestufa">${ESTUFAS.map(e=>`<option ${e===(ed.estufa||ESTUFAS[0])?'selected':''}>${e}</option>`).join('')}</select>
     <label>Produto / variedade</label>
     <select id="m-plprod">${PRODUTOS.map(p=>`<option value="${p.id}" ${p.id===ed.produtoId?'selected':''}>${esc(p.nome)}</option>`).join('')}</select>
     <div class="grid2">
-      <div><label>Nº de pés</label><input id="m-plqtd" type="number" inputmode="numeric" value="${ed.qtdPlantada!=null?ed.qtdPlantada:''}" placeholder="Ex.: 200"></div>
+      <div>
+        <label>Nº de bandejas</label>
+        <input id="m-plband" type="number" inputmode="numeric" value="${ed.id?bandejasDe(ed):''}" placeholder="Ex.: 1" oninput="plRecalcPes()">
+        <div class="muted small" id="m-plpes" style="margin-top:4px">200 pés por bandeja</div>
+      </div>
       <div><label>Dias na bancada</label><input id="m-pldias" type="number" inputmode="numeric" value="${dias}" oninput="plRecalcPrev()"></div>
     </div>
     <div class="grid2">
@@ -667,26 +674,34 @@ function openPlantio(pl){
     ${ed.colhido?`<p class="muted small" style="margin-top:8px">✅ Colhido: <b>${ed.qtdColhida||0} un</b>${ed.dataColheita?' em '+new Date(ed.dataColheita).toLocaleDateString('pt-BR'):''}</p>`:''}
     <button class="btn green" onclick="savePlantio('${ed.id||''}')">Salvar</button>
     ${ed.id&&!ed.colhido?`<button class="btn" style="background:linear-gradient(135deg,#ef6c00,#fb8c00)" onclick="colher('${ed.id}')">🌾 Registrar colheita</button>`:''}
-    ${ed.id?`<button class="btn danger" onclick="delPlantio('${ed.id}')">Excluir lote</button>`:''}
+    ${ed.id?`<button class="btn danger" onclick="delPlantio('${ed.id}')">Excluir plantio</button>`:''}
     <button class="btn ghost" onclick="closeModal()">Cancelar</button>
   `);
+  plRecalcPes();
 }
 function plRecalcPrev(){
   const e=$('m-plentrada'), d=$('m-pldias'), pv=$('m-plprev');
   if(e&&d&&pv&&e.value){ pv.value = addDias(e.value, parseInt(d.value)||0); }
+}
+function plRecalcPes(){
+  const b=$('m-plband'), out=$('m-plpes');
+  if(!b||!out) return;
+  const pes=(parseInt(b.value)||0)*PES_POR_BANDEJA;
+  out.textContent = pes ? ('= '+pes+' pés (200 por bandeja)') : '200 pés por bandeja';
 }
 function savePlantio(id){
   if(needLogin()) return;
   const estufa=$('m-plestufa').value;
   const produtoId=$('m-plprod').value;
   const p=PRODUTOS.find(x=>x.id===produtoId);
-  const qtdPlantada=parseInt($('m-plqtd').value)||0;
+  const qtdBandejas=parseInt($('m-plband').value)||0;
+  const qtdPlantada=qtdBandejas*PES_POR_BANDEJA;
   const diasBancada=parseInt($('m-pldias').value)||BANCADA_PADRAO;
   const dataEntrada=$('m-plentrada').value;
   const previsaoColheita=$('m-plprev').value || addDias(dataEntrada,diasBancada);
   if(!produtoId){ toast('Escolha o produto'); return; }
-  if(qtdPlantada<=0){ toast('Informe o nº de pés'); return; }
-  const data={estufa, produtoId, produtoNome:p?p.nome:'', qtdPlantada, diasBancada, dataEntrada, previsaoColheita};
+  if(qtdBandejas<=0){ toast('Informe o nº de bandejas'); return; }
+  const data={estufa, produtoId, produtoNome:p?p.nome:'', qtdBandejas, qtdPlantada, diasBancada, dataEntrada, previsaoColheita};
   if(!id){ Object.assign(data,{colhido:false, qtdColhida:0, tsLocal:Date.now(), ts:firebase.firestore.FieldValue.serverTimestamp()}); }
   const ref = id ? col('plantios').doc(id).set(data,{merge:true}) : col('plantios').add(data);
   ref.then(()=>{ closeModal(); toast('Plantio salvo ✅'); }).catch(fbErr);
@@ -701,8 +716,8 @@ function colher(id){
     .then(()=>{ closeModal(); toast('🌾 '+q+' un colhidas e somadas ao estoque!'); }).catch(()=>toast('Não consegui registrar'));
 }
 function delPlantio(id){
-  if(!confirm('Excluir este lote de plantio?')) return;
-  col('plantios').doc(id).delete().then(()=>{ closeModal(); toast('Lote excluído'); });
+  if(!confirm('Excluir este plantio?')) return;
+  col('plantios').doc(id).delete().then(()=>{ closeModal(); toast('Plantio excluído'); });
 }
 function renderPlantios(){
   const box=$('pl-list'); if(!box) return;
@@ -729,7 +744,7 @@ function renderPlantios(){
     }
     return `<div class="item" onclick='openPlantio(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="cursor:pointer">
       <div>
-        <div class="name">${esc(p.produtoNome||'—')} · ${p.qtdPlantada||0} pés</div>
+        <div class="name">${esc(p.produtoNome||'—')} · ${bandejasDe(p)} bandeja(s) <span class="muted">(${p.qtdPlantada||0} pés)</span></div>
         <div class="sub">${esc(p.estufa||'')} · <span style="color:${cor};font-weight:700">${st}</span> · ${info}</div>
       </div>
       ${p.colhido?'<span class="pill">✓</span>':`<button class="btn sm" style="background:linear-gradient(135deg,#ef6c00,#fb8c00)" onclick="event.stopPropagation();colher('${p.id}')">🌾</button>`}
@@ -742,25 +757,26 @@ function renderColheita(){
   const box=$('pl-colher'); if(!box) return;
   if(!FB_USER){ box.innerHTML='<div class="empty">Entre na conta.</div>'; return; }
   const prontos=PLANTIOS.filter(p=>!p.colhido && diasPara(p.previsaoColheita)<=0);
-  if(!prontos.length){ box.innerHTML='<div class="empty">Nenhum lote pronto pra colher agora 🌱</div>'; return; }
+  if(!prontos.length){ box.innerHTML='<div class="empty">Nenhum plantio pronto pra colher agora 🌱</div>'; return; }
   const grupos={};
   prontos.forEach(p=>{ const e=p.estufa||'Sem estufa'; (grupos[e]=grupos[e]||[]).push(p); });
   const nomes=Object.keys(grupos).sort((a,b)=>{ const ia=ESTUFAS.indexOf(a), ib=ESTUFAS.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
   box.innerHTML = nomes.map(e=>{
     const lotes=grupos[e].sort((a,b)=>(a.previsaoColheita||'').localeCompare(b.previsaoColheita||''));
     const totPes=lotes.reduce((s,p)=>s+(p.qtdPlantada||0),0);
+    const totBand=lotes.reduce((s,p)=>s+bandejasDe(p),0);
     const linhas=lotes.map(p=>{
       const d=diasPara(p.previsaoColheita);
       const quando = d===0?'pronto hoje 🌾':('pronto há '+(-d)+' dia(s)');
       return `<div class="item" onclick='openPlantio(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="cursor:pointer">
-        <div><div class="name">${esc(p.produtoNome||'—')} · ${p.qtdPlantada||0} pés</div>
+        <div><div class="name">${esc(p.produtoNome||'—')} · ${bandejasDe(p)} bandeja(s) <span class="muted">(${p.qtdPlantada||0} pés)</span></div>
         <div class="sub" style="color:#ef6c00;font-weight:700">${quando}</div></div>
         <button class="btn sm" style="background:linear-gradient(135deg,#ef6c00,#fb8c00)" onclick="event.stopPropagation();colher('${p.id}')">🌾 Colher</button>
       </div>`;
     }).join('');
     return `<div style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:2px solid var(--line);margin-bottom:2px">
-        <b>🏠 ${esc(e)}</b><span class="pill" style="background:#fff3e0;color:#ef6c00">${totPes} pés · ${lotes.length} lote(s)</span>
+        <b>🏠 ${esc(e)}</b><span class="pill" style="background:#fff3e0;color:#ef6c00">${totBand} bandeja(s) · ${totPes} pés</span>
       </div>
       ${linhas}
     </div>`;
@@ -786,7 +802,7 @@ function refreshPdvSelects(){
     if(sem.length){
       alerta.style.display='block';
       alerta.innerHTML='⚠️ <b>Sem tamanho final:</b> '+sem.map(p=>esc(p.nome)).join(', ')
-        +'<br><span style="opacity:.85">Você ainda pode vender menores. Se quiser, colha um lote na aba 🌱 Plantio.</span>';
+        +'<br><span style="opacity:.85">Você ainda pode vender menores. Se quiser, faça uma colheita na aba 🌱 Plantio.</span>';
     }else{ alerta.style.display='none'; alerta.innerHTML=''; }
   }
   if(sc){ const cur=sc.value;
