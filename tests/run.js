@@ -64,22 +64,25 @@ reset();
 PRODUTOS=[{id:'p1',nome:'Alface Brida',preco:3.5}];
 var lNa  ={id:'a',estufa:'Estufa 1',produtoId:'p1',produtoNome:'Alface Brida',qtdPlantada:200,colhido:false,previsaoColheita:hojeMais(5)};
 var lPron={id:'b',estufa:'Estufa 2',produtoId:'p1',produtoNome:'Alface Brida',qtdPlantada:150,colhido:false,previsaoColheita:hojeMais(-1)};
-var lColh={id:'c',estufa:'Estufa 1',produtoId:'p1',produtoNome:'Alface Brida',qtdPlantada:200,colhido:true,qtdColhida:180};
-eq(statusPlantio(lNa),'Na bancada','lote com colheita futura = Na bancada');
-eq(statusPlantio(lPron),'Pronto p/ colher','lote vencido = Pronto p/ colher');
-eq(statusPlantio(lColh),'Colhido','lote colhido = Colhido');
+var lColh={id:'c',estufa:'Estufa 1',produtoId:'p1',produtoNome:'Alface Brida',qtdPlantada:200,dataEntrada:hojeMais(-50)}; // passou de 45 dias
+eq(statusPlantio(lNa),'Na bancada','plantio com colheita futura = Na bancada');
+eq(statusPlantio(lPron),'Pronto p/ colher','plantio vencido = Pronto p/ colher');
+eq(statusPlantio(lColh),'Passado','plantio com +45 dias = Passado (automático)');
 eq(addDias('2026-06-01',28),'2026-06-29','previsão = entrada + dias na bancada');
 
-/* ===== FASE: ESTOQUE — colhido menos vendido ===== */
-suite('Estoque · derivado de colheita e vendas');
+/* ===== FASE: ESTOQUE — plantado no ponto − vendido (automático) ===== */
+suite('Estoque · plantado no ponto − vendido');
 reset();
 PRODUTOS=[{id:'p1',nome:'Alface Brida',preco:3.5}];
-PLANTIOS=[lNa]; VENDAS=[];
-eq(estoqueProduto('p1'),0,'sem colheita, estoque = 0');
-PLANTIOS=[lNa,lColh];
-eq(estoqueProduto('p1'),180,'após colher 180, estoque = 180');
-VENDAS=[{itens:[{id:'p1',nome:'Alface Brida',preco:3.5,qtd:5}],total:17.5}];
-eq(estoqueProduto('p1'),175,'após vender 5, estoque = 175');
+PLANTIOS=[{id:'a',produtoId:'p1',qtdPlantada:200,dataEntrada:hojeMais(-10)}]; VENDAS=[];
+eq(estoqueProduto('p1'),200,'plantou 200 (no ponto), nada vendido → estoque 200');
+VENDAS=[{itens:[{id:'p1',qtd:50}]}];
+eq(estoqueProduto('p1'),150,'vendeu 50 → disponível 150');
+eq(perdaProduto('p1'),0,'ainda no ponto → sem perda');
+// passou de 45 dias: o que não vendeu vira perda sozinho
+PLANTIOS=[{id:'a',produtoId:'p1',qtdPlantada:200,dataEntrada:hojeMais(-50)}];
+eq(estoqueProduto('p1'),0,'passado não conta como estoque');
+eq(perdaProduto('p1'),150,'passou: 200 plantado − 50 vendidos = 150 de perda');
 
 /* ===== FASE: RELATÓRIO — prontos pra colher por estufa ===== */
 suite('Relatório · prontos pra colher por estufa');
@@ -98,9 +101,9 @@ ok(rep.indexOf('Estufa 1') < rep.indexOf('Estufa 2'),'Estufa 1 antes da Estufa 2
 /* ===== FASE: RESUMO — números do topo da aba Plantio ===== */
 suite('Resumo · contadores do topo');
 renderPlantios();
-eq(document.getElementById('pl-cultivo').textContent, 470, 'pés em cultivo = 470 (exclui colhido)');
+eq(document.getElementById('pl-cultivo').textContent, 470, 'pés em cultivo = 470 (exclui passado)');
 eq(document.getElementById('pl-prontos').textContent, 270, 'prontos p/ colher = 270 pés');
-eq(document.getElementById('pl-lotes').textContent, 3, 'lotes na bancada = 3 (exclui colhido)');
+eq(document.getElementById('pl-lotes').textContent, 3, 'plantios na bancada = 3 (exclui passado)');
 
 /* ===== FASE: VENDAS — total e itens do carrinho ===== */
 suite('Vendas · cálculo do carrinho');
@@ -183,9 +186,9 @@ eq(document.getElementById('m-lbruto').textContent, brl(800), 'fixo de produçã
 suite('Vendas · vender menores é permitido');
 reset();
 PRODUTOS=[{id:'p1',nome:'Brida',preco:5},{id:'p2',nome:'Roxa',preco:4}];
-PLANTIOS=[{id:'a',produtoId:'p1',colhido:true,qtdColhida:2}];   // p1 tem 2, p2 tem 0
-eq(estoqueProduto('p1'),2,'p1 com 2 em tamanho final');
-eq(estoqueProduto('p2'),0,'p2 sem tamanho final');
+PLANTIOS=[{id:'a',produtoId:'p1',qtdPlantada:2,colhido:false}];   // p1 tem 2 plantado, p2 tem 0
+eq(estoqueProduto('p1'),2,'p1 com 2 disponíveis');
+eq(estoqueProduto('p2'),0,'p2 sem estoque');
 document.getElementById('pdv-prod').value='p2';
 pdvAdd();
 eq(noCarrinho('p2'),1,'dá pra vender produto sem tamanho final (menores)');
@@ -201,15 +204,15 @@ eq(noCarrinho('p1'),3,'botão − funciona normal');
 suite('Vendas · alerta de sem estoque');
 reset();
 PRODUTOS=[{id:'p1',nome:'Brida',preco:5},{id:'p2',nome:'Roxa',preco:4}];
-PLANTIOS=[{id:'a',produtoId:'p1',colhido:true,qtdColhida:5}];
+PLANTIOS=[{id:'a',produtoId:'p1',qtdPlantada:5,colhido:false}];
 var sem=produtosSemEstoque();
-eq(sem.length,1,'só um produto sem tamanho final');
+eq(sem.length,1,'só um produto sem estoque');
 eq(sem[0].id,'p2','o sem estoque é o p2 (Roxa)');
 refreshPdvSelects();
 var al=document.getElementById('pdv-alert');
 ok(al.style.display==='block','alerta vermelho fica visível');
-ok(al.innerHTML.includes('Roxa'),'alerta cita o produto sem tamanho final');
-PLANTIOS=[{id:'a',produtoId:'p1',colhido:true,qtdColhida:5},{id:'b',produtoId:'p2',colhido:true,qtdColhida:5}];
+ok(al.innerHTML.includes('Roxa'),'alerta cita o produto sem estoque');
+PLANTIOS=[{id:'a',produtoId:'p1',qtdPlantada:5,colhido:false},{id:'b',produtoId:'p2',qtdPlantada:5,colhido:false}];
 refreshPdvSelects();
 eq(document.getElementById('pdv-alert').style.display,'none','sem produtos zerados, alerta some');
 
@@ -237,6 +240,34 @@ renderPlantios();
 var plb=document.getElementById('pl-list').innerHTML;
 ok(plb.includes('3 bandeja'),'lista mostra as bandejas');
 ok(plb.includes('600 pés'),'lista mostra os pés equivalentes');
+
+/* ===== FASE: PERDAS — automático por 45 dias (plantio × vendas) ===== */
+suite('Perdas · automático por 45 dias');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+PLANTIOS=[
+  {id:'a',produtoId:'p1',produtoNome:'Brida',qtdPlantada:2000,dataEntrada:hojeMais(-50)}, // passou do ponto
+  {id:'b',produtoId:'p1',produtoNome:'Brida',qtdPlantada:1000,dataEntrada:hojeMais(-5)}   // ainda no ponto
+];
+VENDAS=[{itens:[{id:'p1',qtd:1600}]}];
+// FIFO: as 1600 vendas saem do plantio mais antigo (o passado) primeiro
+eq(perdaProduto('p1'),400,'passado: 2000 − 1600 vendidos = 400 de perda');
+eq(estoqueProduto('p1'),1000,'no ponto: 1000 disponível (vendas saíram do passado)');
+PERDA_PERIODO='tudo'; renderPerdas();
+eq(document.getElementById('pd-plantado').textContent,2000,'painel: plantado passado = 2000');
+eq(document.getElementById('pd-vendido').textContent,1600,'painel: vendido = 1600');
+eq(document.getElementById('pd-perda').textContent,400,'painel: perda = 400');
+eq(document.getElementById('pd-taxa').textContent,'20.0%','taxa de perda = 20%');
+var pdl=document.getElementById('pd-list').innerHTML;
+ok(pdl.includes('Brida') && pdl.includes('perda 400'),'lista por produto mostra a perda');
+// período: passado que "morreu" (entrada+45) há muito tempo fica fora da semana
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+PLANTIOS=[{id:'a',produtoId:'p1',produtoNome:'Brida',qtdPlantada:500,dataEntrada:hojeMais(-120)}]; VENDAS=[];
+PERDA_PERIODO='tudo'; renderPerdas();
+eq(document.getElementById('pd-perda').textContent,500,'tudo: inclui o passado antigo (perda 500)');
+PERDA_PERIODO='semana'; renderPerdas();
+eq(document.getElementById('pd-perda').textContent,0,'semana: exclui o passado que morreu há muito');
 `;
 
 vm.createContext(sandbox);

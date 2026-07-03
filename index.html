@@ -33,6 +33,7 @@ body.tab-produtos  {--th1:#e65100; --th2:#fb8c00; --th-bg:#fdeedd; --th-card:#ff
 body.tab-clientes  {--th1:#6a1b9a; --th2:#8e24aa; --th-bg:#f0e4fb; --th-card:#f8f0fe; --th-soft:#eddcfb;}
 body.tab-custos    {--th1:#c2185b; --th2:#ec407a; --th-bg:#fce4ec; --th-card:#fff1f5; --th-soft:#fbd6e3;}
 body.tab-relatorios{--th1:#00838f; --th2:#00acc1; --th-bg:#def4f6; --th-card:#eefafb; --th-soft:#d6f0f3;}
+body.tab-perdas    {--th1:#b71c1c; --th2:#e53935; --th-bg:#fdeaea; --th-card:#fff4f4; --th-soft:#fbdada;}
 body.tab-conta     {--th1:#1565c0; --th2:#1e88e5; --th-bg:#e7f0fb; --th-card:#f1f7ff; --th-soft:#e2edfc;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
@@ -223,6 +224,7 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
   <section class="screen" id="s-plantio">
     <div class="card">
       <h2>🌱 Plantio em cultivo</h2>
+      <div id="pl-alerta" style="display:none;background:#fdecea;border:1.5px solid #f5c2bd;color:#b3261e;border-radius:12px;padding:11px 13px;margin:0 0 12px;font-size:14px;line-height:1.35"></div>
       <div class="stat" style="grid-template-columns:1fr 1fr 1fr">
         <div class="box"><div class="v" id="pl-cultivo">0</div><div class="k">pés em cultivo</div></div>
         <div class="box"><div class="v" id="pl-prontos">0</div><div class="k">prontos p/ colher</div></div>
@@ -327,6 +329,30 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
     </div>
   </section>
 
+  <!-- ░░ PERDAS ░░ -->
+  <section class="screen" id="s-perdas">
+    <div class="card">
+      <h2>📉 Perdas</h2>
+      <p class="muted small" style="margin:0 0 10px">Perda = o que foi <b>plantado</b> e não foi <b>vendido</b> nos plantios que passaram do ponto (+45 dias — morreu por doença, clima, etc.). É automático.</p>
+      <div class="seg" id="pd-seg">
+        <button data-p="semana" onclick="setPeriodoPerda('semana')">Semana</button>
+        <button data-p="mes" class="on" onclick="setPeriodoPerda('mes')">Mês</button>
+        <button data-p="tudo" onclick="setPeriodoPerda('tudo')">Tudo</button>
+      </div>
+      <div class="stat" style="margin-top:12px;grid-template-columns:1fr 1fr 1fr">
+        <div class="box"><div class="v" id="pd-plantado">0</div><div class="k">Plantado</div></div>
+        <div class="box"><div class="v" id="pd-vendido">0</div><div class="k">Vendido</div></div>
+        <div class="box"><div class="v" id="pd-perda">0</div><div class="k">Perda</div></div>
+      </div>
+      <div class="kv" style="margin-top:12px"><span><b>Taxa de perda</b></span><b id="pd-taxa">0%</b></div>
+      <p class="muted small" id="pd-nota" style="margin-top:6px"></p>
+    </div>
+    <div class="card">
+      <h2>Por produto</h2>
+      <div id="pd-list"><div class="empty">Sem perdas no período 🎉</div></div>
+    </div>
+  </section>
+
   <!-- ░░ LOGIN (tela cheia quando deslogado) ░░ -->
   <section class="screen" id="s-conta">
     <div class="auth-wrap card">
@@ -359,6 +385,7 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
   <button data-s="clientes" onclick="goTo('clientes')"><span class="ic">👥</span>Clientes</button>
   <button data-s="custos" onclick="goTo('custos')"><span class="ic">💸</span>Custos</button>
   <button data-s="relatorios" onclick="goTo('relatorios')"><span class="ic">📊</span>Relatórios</button>
+  <button data-s="perdas" onclick="goTo('perdas')"><span class="ic">📉</span>Perdas</button>
 </nav>
 
 <!-- Modal genérico -->
@@ -381,7 +408,7 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;',
 
 /* ───────────────────────── NAVEGAÇÃO ───────────────────────── */
 /* cor da barra de status do celular por aba (combina com o tema da tela) */
-const TEMA = {vendas:'#1565c0', plantio:'#2e7d32', produtos:'#e65100', clientes:'#6a1b9a', custos:'#c2185b', relatorios:'#00838f', conta:'#1565c0'};
+const TEMA = {vendas:'#1565c0', plantio:'#2e7d32', produtos:'#e65100', clientes:'#6a1b9a', custos:'#c2185b', relatorios:'#00838f', perdas:'#b71c1c', conta:'#1565c0'};
 function goTo(s){
   document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
   const sec=$('s-'+s); if(sec) sec.classList.add('active');
@@ -394,6 +421,7 @@ function goTo(s){
   if(s==='clientes') renderClientes();
   if(s==='custos') renderCustos();
   if(s==='relatorios') renderRelatorios();
+  if(s==='perdas') renderPerdas();
   if(s==='vendas') refreshPdvSelects();
   window.scrollTo(0,0);
 }
@@ -539,8 +567,8 @@ function openProd(p){
     <input id="m-pnome" value="${esc(ed.nome||'')}" placeholder="Ex.: Alface crespa">
     <label>Preço de venda (R$)</label>
     <input id="m-ppreco" type="number" inputmode="decimal" step="0.01" value="${ed.preco!=null?ed.preco:''}" placeholder="0,00">
-    ${ed.id?`<p class="muted small" style="margin:12px 0 0">📦 Estoque atual: <b>${estoqueProduto(ed.id)} un</b><br>O estoque é calculado automaticamente pelo que foi colhido na aba 🌱 Plantio, menos o que já foi vendido.</p>`
-            :`<p class="muted small" style="margin:12px 0 0">O estoque deste produto virá das colheitas registradas na aba 🌱 Plantio.</p>`}
+    ${ed.id?`<p class="muted small" style="margin:12px 0 0">📦 Disponível pra vender: <b>${estoqueProduto(ed.id)} un</b><br>É o que está <b>plantado</b> na aba 🌱 Plantio (ainda no ponto) menos o que já foi vendido. O que passar de ${VIDA_UTIL_DIAS} dias sem vender vira perda automaticamente (aba 📉 Perdas).</p>`
+            :`<p class="muted small" style="margin:12px 0 0">O estoque deste produto virá do que for plantado na aba 🌱 Plantio.</p>`}
     <button class="btn green" onclick="saveProd('${ed.id||''}')">Salvar</button>
     ${ed.id?`<button class="btn danger" onclick="delProd('${ed.id}')">Excluir produto</button>`:''}
     <button class="btn ghost" onclick="closeModal()">Cancelar</button>
@@ -559,15 +587,40 @@ function delProd(id){
   if(!confirm('Excluir este produto?')) return;
   col('produtos').doc(id).delete().then(()=>{ closeModal(); toast('Produto excluído'); });
 }
-/* estoque = total colhido (aba Plantio) − total vendido, por produto */
-function colhidoProduto(pid){ return PLANTIOS.filter(pl=>pl.colhido&&pl.produtoId===pid).reduce((s,pl)=>s+(pl.qtdColhida||0),0); }
+/* ── ESTOQUE E PERDAS (100% automático: só plantio × vendas) ──
+   Um plantio "passa do ponto" sozinho após VIDA_UTIL_DIAS dias da entrada na bancada.
+   Estoque disponível = o que está plantado, ainda no ponto, e não foi vendido.
+   O que passou do ponto e não foi vendido vira PERDA automaticamente (doença, clima, etc.). */
+const VIDA_UTIL_DIAS = 45; // depois disso o plantio é considerado passado/perdido
+function plantioPassado(p){ return diasDesde(p.dataEntrada||p.dataPlantio) > VIDA_UTIL_DIAS; }
 function vendidoProduto(pid){
   let n=0; VENDAS.forEach(v=>(v.itens||[]).forEach(it=>{ if(it.id===pid) n+=it.qtd||0; })); return n;
 }
-function estoqueProduto(pid){ return colhidoProduto(pid)-vendidoProduto(pid); }
+/* atribui as vendas do produto aos plantios, do mais antigo pro mais novo (FIFO) */
+function alocaVendas(pid){
+  const pls=PLANTIOS.filter(p=>p.produtoId===pid)
+    .sort((a,b)=> String(a.dataEntrada||'').localeCompare(String(b.dataEntrada||'')) || (a.tsLocal||0)-(b.tsLocal||0));
+  let rem=vendidoProduto(pid);
+  return pls.map(p=>{
+    const plantado=p.qtdPlantada||0;
+    const vendido=Math.min(plantado, Math.max(0,rem));
+    rem-=vendido;
+    return {p, plantado, vendido, sobra:plantado-vendido, passado:plantioPassado(p)};
+  });
+}
+/* estoque disponível = sobra dos plantios ainda no ponto (não passados) */
+function estoqueProduto(pid){ return alocaVendas(pid).filter(x=>!x.passado).reduce((s,x)=>s+x.sobra,0); }
+/* perda = sobra dos plantios que já passaram do ponto */
+function perdaProduto(pid){ return alocaVendas(pid).filter(x=>x.passado).reduce((s,x)=>s+x.sobra,0); }
+/* sobra/vendido por plantio (para exibir nas listas) — mapa id → {vendido,sobra,passado} */
+function alocacaoPorPlantio(){
+  const m={}, ids=[...new Set(PLANTIOS.map(p=>p.produtoId))];
+  ids.forEach(pid=>alocaVendas(pid).forEach(x=>{ m[x.p.id]=x; }));
+  return m;
+}
 /* quanto do produto já está no carrinho (venda ainda não finalizada) */
 function noCarrinho(pid){ const it=(typeof CART!=='undefined'?CART:[]).find(x=>x.id===pid); return it?it.qtd:0; }
-/* produtos sem nada em tamanho final — apenas para AVISAR (a venda de menores é permitida) */
+/* produtos sem estoque disponível — apenas para AVISAR (a venda de menores é permitida) */
 function produtosSemEstoque(){ return PRODUTOS.filter(p=>estoqueProduto(p.id)<=0); }
 
 function renderProdutos(){
@@ -630,14 +683,14 @@ function renderClientes(){
 /* ───────────────────────── PLANTIO ─────────────────────────
    Realidade das estufas: as mudas chegam com ~10 dias e vão DIRETO para a
    bancada final, onde ficam até a colheita. Por isso não há berçário aqui —
-   o que conta é o tempo na bancada. A colheita (qtdColhida) vira estoque. */
+   o que conta é o tempo na bancada. Estoque e perda são automáticos (plantio × vendas). */
 const ESTUFAS = ['Estufa 1','Estufa 2'];
 const BANCADA_PADRAO = 28; // dias na bancada final até a colheita (alface Brida; ajuste por estação)
 const PES_POR_BANDEJA = 200; // cada bandeja = 200 pés plantados
-const STATUS_COR = {'Na bancada':'#1e88e5','Pronto p/ colher':'#ef6c00','Colhido':'#6b7787'};
+const STATUS_COR = {'Na bancada':'#1e88e5','Pronto p/ colher':'#ef6c00','Passado':'#d32f2f'};
 /* nº de bandejas do plantio (converte pés antigos automaticamente) */
 function bandejasDe(p){ return p.qtdBandejas!=null ? p.qtdBandejas : Math.round((p.qtdPlantada||0)/PES_POR_BANDEJA); }
-function statusPlantio(p){ if(p.colhido) return 'Colhido'; return diasPara(p.previsaoColheita)<=0 ? 'Pronto p/ colher' : 'Na bancada'; }
+function statusPlantio(p){ if(plantioPassado(p)) return 'Passado'; return diasPara(p.previsaoColheita)<=0 ? 'Pronto p/ colher' : 'Na bancada'; }
 
 function addDias(ds,n){ const d=ds?new Date(ds+'T00:00:00'):new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
 function diasPara(ds){ if(!ds) return 0; const h=new Date(); h.setHours(0,0,0,0); const a=new Date(ds+'T00:00:00'); return Math.round((a-h)/86400000); }
@@ -671,9 +724,8 @@ function openPlantio(pl){
       <div><label>Previsão colheita</label><input id="m-plprev" type="date" value="${prev}"></div>
     </div>
     <p class="muted small" style="margin:8px 0 0">Mudas chegam com ~10 dias e vão direto pra bancada final. A previsão é <b>entrada + dias na bancada</b> — aumente no frio, diminua no calor.</p>
-    ${ed.colhido?`<p class="muted small" style="margin-top:8px">✅ Colhido: <b>${ed.qtdColhida||0} un</b>${ed.dataColheita?' em '+new Date(ed.dataColheita).toLocaleDateString('pt-BR'):''}</p>`:''}
+    ${ed.id&&plantioPassado(ed)?`<p class="small" style="margin-top:8px;color:var(--danger);font-weight:700">⚠️ Passado há ${diasDesde(ed.dataEntrada||ed.dataPlantio)-VIDA_UTIL_DIAS} dia(s) — o que não foi vendido já entrou como perda (aba 📉 Perdas).</p>`:''}
     <button class="btn green" onclick="savePlantio('${ed.id||''}')">Salvar</button>
-    ${ed.id&&!ed.colhido?`<button class="btn" style="background:linear-gradient(135deg,#ef6c00,#fb8c00)" onclick="colher('${ed.id}')">🌾 Registrar colheita</button>`:''}
     ${ed.id?`<button class="btn danger" onclick="delPlantio('${ed.id}')">Excluir plantio</button>`:''}
     <button class="btn ghost" onclick="closeModal()">Cancelar</button>
   `);
@@ -702,18 +754,9 @@ function savePlantio(id){
   if(!produtoId){ toast('Escolha o produto'); return; }
   if(qtdBandejas<=0){ toast('Informe o nº de bandejas'); return; }
   const data={estufa, produtoId, produtoNome:p?p.nome:'', qtdBandejas, qtdPlantada, diasBancada, dataEntrada, previsaoColheita};
-  if(!id){ Object.assign(data,{colhido:false, qtdColhida:0, tsLocal:Date.now(), ts:firebase.firestore.FieldValue.serverTimestamp()}); }
+  if(!id){ Object.assign(data,{tsLocal:Date.now(), ts:firebase.firestore.FieldValue.serverTimestamp()}); }
   const ref = id ? col('plantios').doc(id).set(data,{merge:true}) : col('plantios').add(data);
   ref.then(()=>{ closeModal(); toast('Plantio salvo ✅'); }).catch(fbErr);
-}
-function colher(id){
-  const pl=PLANTIOS.find(x=>x.id===id); if(!pl) return;
-  const r=prompt('Quantos pés foram colhidos? (entram no estoque de '+(pl.produtoNome||'')+')', pl.qtdPlantada||0);
-  if(r===null) return;
-  const q=parseInt(r)||0;
-  if(q<=0){ toast('Quantidade inválida'); return; }
-  col('plantios').doc(id).set({colhido:true, qtdColhida:q, fase:'Colhido', dataColheita:Date.now()},{merge:true})
-    .then(()=>{ closeModal(); toast('🌾 '+q+' un colhidas e somadas ao estoque!'); }).catch(()=>toast('Não consegui registrar'));
 }
 function delPlantio(id){
   if(!confirm('Excluir este plantio?')) return;
@@ -721,22 +764,35 @@ function delPlantio(id){
 }
 function renderPlantios(){
   const box=$('pl-list'); if(!box) return;
-  const ativos=PLANTIOS.filter(p=>!p.colhido);
-  const cultivo=ativos.reduce((s,p)=>s+(p.qtdPlantada||0),0);
-  const prontos=ativos.filter(p=>diasPara(p.previsaoColheita)<=0).reduce((s,p)=>s+(p.qtdPlantada||0),0);
+  const vivos=PLANTIOS.filter(p=>!plantioPassado(p));
+  const passados=PLANTIOS.filter(plantioPassado);
+  const cultivo=vivos.reduce((s,p)=>s+(p.qtdPlantada||0),0);
+  const prontos=vivos.filter(p=>diasPara(p.previsaoColheita)<=0).reduce((s,p)=>s+(p.qtdPlantada||0),0);
   if($('pl-cultivo')) $('pl-cultivo').textContent=cultivo;
   if($('pl-prontos')) $('pl-prontos').textContent=prontos;
-  if($('pl-lotes')) $('pl-lotes').textContent=ativos.length;
+  if($('pl-lotes')) $('pl-lotes').textContent=vivos.length;
+  // Alerta automático: plantios que passaram de 45 dias (passados/perdidos)
+  const alerta=$('pl-alerta');
+  if(alerta){
+    if(passados.length){
+      alerta.style.display='block';
+      alerta.innerHTML='⚠️ <b>'+passados.length+' plantio(s) passaram de '+VIDA_UTIL_DIAS+' dias</b> e provavelmente se perderam (doença, clima, passaram do ponto). O que não foi vendido já conta como perda na aba 📉 Perdas.';
+    }else{ alerta.style.display='none'; alerta.innerHTML=''; }
+  }
   renderColheita();
   if(!FB_USER){ box.innerHTML='<div class="empty">Entre na conta para ver seus plantios.</div>'; return; }
   if(!PLANTIOS.length){ box.innerHTML='<div class="empty">Nenhum plantio ainda. Toque em <b>+ Novo plantio</b>.</div>'; return; }
-  const ord=[...PLANTIOS].sort((a,b)=>{ if(a.colhido!==b.colhido) return a.colhido?1:-1; return (a.previsaoColheita||'').localeCompare(b.previsaoColheita||''); });
+  const aloc=alocacaoPorPlantio();
+  const ord=[...PLANTIOS].sort((a,b)=>{ const pa=plantioPassado(a), pb=plantioPassado(b); if(pa!==pb) return pa?1:-1; return (a.previsaoColheita||'').localeCompare(b.previsaoColheita||''); });
   box.innerHTML = ord.map(p=>{
     const st=statusPlantio(p);
     const cor=STATUS_COR[st]||'#6b7787';
+    const x=aloc[p.id];
     let info;
-    if(p.colhido){ info='colhido · '+(p.qtdColhida||0)+' un'; }
-    else{
+    if(plantioPassado(p)){
+      const perda=x?x.sobra:(p.qtdPlantada||0);
+      info='passado há '+(diasDesde(p.dataEntrada||p.dataPlantio)-VIDA_UTIL_DIAS)+' dia(s) · vendido '+(x?x.vendido:0)+' · perda '+perda;
+    }else{
       const ha=diasDesde(p.dataEntrada||p.dataPlantio);
       const d=diasPara(p.previsaoColheita);
       const falta = d>0?('faltam '+d+' dia(s) p/ colher') : (d===0?'colhe hoje 🌾':('atrasado '+(-d)+' dia(s)'));
@@ -747,7 +803,7 @@ function renderPlantios(){
         <div class="name">${esc(p.produtoNome||'—')} · ${bandejasDe(p)} bandeja(s) <span class="muted">(${p.qtdPlantada||0} pés)</span></div>
         <div class="sub">${esc(p.estufa||'')} · <span style="color:${cor};font-weight:700">${st}</span> · ${info}</div>
       </div>
-      ${p.colhido?'<span class="pill">✓</span>':`<button class="btn sm" style="background:linear-gradient(135deg,#ef6c00,#fb8c00)" onclick="event.stopPropagation();colher('${p.id}')">🌾</button>`}
+      ${plantioPassado(p)?'<span class="pill" style="background:#fdecea;color:var(--danger)">⚠️</span>':'<span class="muted">›</span>'}
     </div>`;
   }).join('');
 }
@@ -756,7 +812,7 @@ function renderPlantios(){
 function renderColheita(){
   const box=$('pl-colher'); if(!box) return;
   if(!FB_USER){ box.innerHTML='<div class="empty">Entre na conta.</div>'; return; }
-  const prontos=PLANTIOS.filter(p=>!p.colhido && diasPara(p.previsaoColheita)<=0);
+  const prontos=PLANTIOS.filter(p=>!plantioPassado(p) && diasPara(p.previsaoColheita)<=0);
   if(!prontos.length){ box.innerHTML='<div class="empty">Nenhum plantio pronto pra colher agora 🌱</div>'; return; }
   const grupos={};
   prontos.forEach(p=>{ const e=p.estufa||'Sem estufa'; (grupos[e]=grupos[e]||[]).push(p); });
@@ -771,7 +827,7 @@ function renderColheita(){
       return `<div class="item" onclick='openPlantio(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="cursor:pointer">
         <div><div class="name">${esc(p.produtoNome||'—')} · ${bandejasDe(p)} bandeja(s) <span class="muted">(${p.qtdPlantada||0} pés)</span></div>
         <div class="sub" style="color:#ef6c00;font-weight:700">${quando}</div></div>
-        <button class="btn sm" style="background:linear-gradient(135deg,#ef6c00,#fb8c00)" onclick="event.stopPropagation();colher('${p.id}')">🌾 Colher</button>
+        <span class="muted">›</span>
       </div>`;
     }).join('');
     return `<div style="margin-bottom:12px">
@@ -790,19 +846,19 @@ function refreshPdvSelects(){
   if(sp){ const cur=sp.value;
     sp.innerHTML='<option value="">— selecione —</option>'+PRODUTOS.map(p=>{
       const est=estoqueProduto(p.id);
-      const marca = est>0 ? est+' em estoque' : '⚠️ sem tamanho final';
+      const marca = est>0 ? est+' disponível' : '⚠️ sem estoque';
       return `<option value="${p.id}">${esc(p.nome)} — ${brl(p.preco)} · ${marca}</option>`;
     }).join('');
     sp.value=cur;
   }
-  // Alerta vermelho de aviso (não bloqueia): produtos sem tamanho final pronto
+  // Alerta vermelho de aviso (não bloqueia): produtos sem estoque disponível
   const alerta=$('pdv-alert');
   if(alerta){
     const sem=produtosSemEstoque();
     if(sem.length){
       alerta.style.display='block';
-      alerta.innerHTML='⚠️ <b>Sem tamanho final:</b> '+sem.map(p=>esc(p.nome)).join(', ')
-        +'<br><span style="opacity:.85">Você ainda pode vender menores. Se quiser, faça uma colheita na aba 🌱 Plantio.</span>';
+      alerta.innerHTML='⚠️ <b>Sem estoque disponível:</b> '+sem.map(p=>esc(p.nome)).join(', ')
+        +'<br><span style="opacity:.85">Você ainda pode vender (menores). Falta plantar ou o plantio ainda não está no ponto.</span>';
     }else{ alerta.style.display='none'; alerta.innerHTML=''; }
   }
   if(sc){ const cur=sc.value;
@@ -813,8 +869,8 @@ function refreshPdvSelects(){
 function pdvAdd(){
   const id=$('pdv-prod').value; if(!id){ toast('Escolha um produto'); return; }
   const p=PRODUTOS.find(x=>x.id===id); if(!p) return;
-  // Sem trava: dá pra vender menores mesmo sem tamanho final — só avisa.
-  if(estoqueProduto(id)<=0) toast('⚠️ '+p.nome+' sem tamanho final — vendendo menores');
+  // Sem trava: dá pra vender mesmo sem estoque no ponto — só avisa.
+  if(estoqueProduto(id)<=0) toast('⚠️ '+p.nome+' sem estoque no ponto — vendendo mesmo assim');
   const ex=CART.find(x=>x.id===id);
   if(ex) ex.qtd++; else CART.push({id:p.id, nome:p.nome, preco:p.preco, qtd:1});
   renderCart();
@@ -860,7 +916,7 @@ function finalizarVenda(){
 }
 
 /* ───────────────────────── PERÍODO (semana/mês/tudo) ───────────────────────── */
-let REL_PERIODO='semana', CUSTO_PERIODO='mes';
+let REL_PERIODO='semana', CUSTO_PERIODO='mes', PERDA_PERIODO='mes';
 function periodoIni(p){
   const n=new Date();
   if(p==='hoje')   return new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime();
@@ -889,6 +945,49 @@ function fixosPorTipo(p){
   return {prod, oper, total:prod+oper};
 }
 function setPeriodo(p){ REL_PERIODO=p; document.querySelectorAll('#rel-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderRelatorios(); }
+function setPeriodoPerda(p){ PERDA_PERIODO=p; document.querySelectorAll('#pd-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderPerdas(); }
+/* cor por faixa de perda (base: produtores consideram até ~15–20% normal) */
+function corTaxa(t){ return t>0.20?'var(--danger)':(t>=0.10?'#ef6c00':'#2e7d32'); }
+function renderPerdas(){
+  const box=$('pd-list'); if(!box) return;
+  const ini=periodoIni(PERDA_PERIODO);
+  const ids=[...new Set(PLANTIOS.map(p=>p.produtoId))];
+  const mapa={};
+  ids.forEach(pid=>{
+    alocaVendas(pid).forEach(x=>{
+      if(!x.passado) return;                                     // só plantios que passaram do ponto
+      const morte=dataParaTs(addDias(x.p.dataEntrada||x.p.dataPlantio, VIDA_UTIL_DIAS));
+      if(morte<ini) return;                                      // fora do período
+      const k=pid||'—';
+      const g=mapa[k]||(mapa[k]={nome:x.p.produtoNome||'—', plantado:0, vendido:0, perda:0});
+      g.plantado+=x.plantado; g.vendido+=x.vendido; g.perda+=x.sobra;
+    });
+  });
+  const linhas=Object.values(mapa).sort((a,b)=>b.perda-a.perda);
+  const tot=linhas.reduce((s,g)=>({plantado:s.plantado+g.plantado, vendido:s.vendido+g.vendido, perda:s.perda+g.perda}),{plantado:0,vendido:0,perda:0});
+  const taxa=tot.plantado?tot.perda/tot.plantado:0;
+  if($('pd-plantado')) $('pd-plantado').textContent=tot.plantado;
+  if($('pd-vendido'))  $('pd-vendido').textContent=tot.vendido;
+  if($('pd-perda')){ $('pd-perda').textContent=tot.perda; $('pd-perda').style.color=corTaxa(taxa); }
+  if($('pd-taxa')){ $('pd-taxa').textContent=(taxa*100).toFixed(1)+'%'; $('pd-taxa').style.color=corTaxa(taxa); }
+  if($('pd-nota')) $('pd-nota').textContent = tot.plantado
+    ? (taxa>0.20 ? '⚠️ Perda alta. Produtores consideram até ~15–20% normal; acima disso, revise EC/pH, clima e doenças.'
+       : (taxa>=0.10 ? 'Perda dentro do comum (10–20%). Dá pra melhorar com manejo.'
+          : '👏 Perda baixa (abaixo de 10%) — ótimo aproveitamento.'))
+    : '';
+  if(!FB_USER){ box.innerHTML='<div class="empty">Entre na conta.</div>'; return; }
+  if(!linhas.length){ box.innerHTML='<div class="empty">Sem perdas '+periodoLabel(PERDA_PERIODO)+' 🎉</div>'; return; }
+  box.innerHTML=linhas.map(g=>{
+    const t=g.plantado?g.perda/g.plantado:0, cor=corTaxa(t);
+    return `<div class="item">
+      <div>
+        <div class="name">📦 ${esc(g.nome)}</div>
+        <div class="sub">Plantado ${g.plantado} · vendido ${g.vendido} · <span style="color:${cor};font-weight:700">perda ${g.perda}</span></div>
+      </div>
+      <span class="pill" style="background:${t>0.20?'#fdecea':(t>=0.10?'#fff3e0':'#e6f4ea')};color:${cor}">${(t*100).toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+}
 function setPeriodoCusto(p){ CUSTO_PERIODO=p; document.querySelectorAll('#cu-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderCustos(); }
 function corLucro(el,v){ if(el) el.style.color = v>=0 ? '#2e7d32' : '#c62828'; }
 
