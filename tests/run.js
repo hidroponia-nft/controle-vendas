@@ -202,6 +202,14 @@ eq(noCarrinho('p1'),7,'digitar de novo ajusta (7)');
 cartDel('p1');
 eq(noCarrinho('p1'),0,'lixeira remove do carrinho');
 
+/* ===== FASE: VENDAS — data da venda escolhida no calendário ===== */
+suite('Vendas · data escolhida no calendário');
+var hj=new Date().toISOString().slice(0,10), t0=Date.now();
+ok(tsDaVenda('')>=t0, 'sem data escolhida usa a hora atual');
+ok(tsDaVenda(hj)>=t0, 'data de hoje usa a hora atual');
+eq(tsDaVenda('2026-01-10'), new Date('2026-01-10T12:00:00').getTime(), 'dia passado vira meio-dia daquela data');
+ok(tsDaVenda('2026-01-10') < t0, 'data passada gera timestamp anterior a agora');
+
 /* ===== FASE: VENDAS — alerta vermelho de produtos sem tamanho final ===== */
 suite('Vendas · alerta de sem estoque');
 reset();

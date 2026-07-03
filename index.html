@@ -206,8 +206,10 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
 
       <div id="cart" style="margin-top:14px"></div>
 
-      <label style="margin-top:14px">Cliente (opcional)</label>
-      <select id="pdv-cli"><option value="">— sem cliente —</option></select>
+      <div class="grid2" style="margin-top:14px">
+        <div><label>Data da venda</label><input id="pdv-data" type="date"></div>
+        <div><label>Cliente (opcional)</label><select id="pdv-cli"><option value="">— sem cliente —</option></select></div>
+      </div>
 
       <div class="total-bar"><span>Total</span><span id="cart-total">R$ 0,00</span></div>
       <button class="btn green" onclick="finalizarVenda()">✅ Finalizar venda</button>
@@ -870,6 +872,7 @@ function refreshPdvSelects(){
     sc.innerHTML='<option value="">— sem cliente —</option>'+CLIENTES.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
     sc.value=cur;
   }
+  const dt=$('pdv-data'); if(dt && !dt.value) dt.value=new Date().toISOString().slice(0,10);
 }
 function pdvAdd(){
   const id=$('pdv-prod').value; if(!id){ toast('Escolha um produto'); return; }
@@ -903,24 +906,33 @@ function renderCart(){
   $('cart-total').textContent = brl(cartTotal());
 }
 function cartTotal(){ return CART.reduce((s,it)=>s+it.preco*it.qtd,0); }
+/* data da venda escolhida no calendário → timestamp (hoje usa a hora atual; dia passado usa meio-dia) */
+function tsDaVenda(dataStr){
+  const hoje=new Date().toISOString().slice(0,10);
+  if(!dataStr || dataStr===hoje) return Date.now();
+  return new Date(dataStr+'T12:00:00').getTime();
+}
 function finalizarVenda(){
   if(needLogin()) return;
   if(!CART.length){ toast('Carrinho vazio'); return; }
   const cliId=$('pdv-cli').value;
   const cli=CLIENTES.find(c=>c.id===cliId);
+  const dataVenda=$('pdv-data')?$('pdv-data').value:'';
   const venda={
     itens: CART.map(it=>({id:it.id, nome:it.nome, preco:it.preco, qtd:it.qtd})),
     total: cartTotal(),
     qtdItens: CART.reduce((s,it)=>s+it.qtd,0),
     clienteId: cliId||null,
     clienteNome: cli?cli.nome:null,
+    data: dataVenda||new Date().toISOString().slice(0,10),
     ts: firebase.firestore.FieldValue.serverTimestamp(),
-    tsLocal: Date.now()
+    tsLocal: tsDaVenda(dataVenda)
   };
-  // estoque é derivado das colheitas − vendas, então basta registrar a venda
+  // estoque é derivado do plantio − vendas, então basta registrar a venda
   col('vendas').add(venda).then(()=>{
     toast('🎉 Venda de '+brl(venda.total)+' registrada!');
     CART=[]; renderCart(); $('pdv-cli').value='';
+    if($('pdv-data')) $('pdv-data').value=new Date().toISOString().slice(0,10);
   }).catch(()=>toast('Não consegui registrar a venda'));
 }
 
