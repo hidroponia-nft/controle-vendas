@@ -193,6 +193,7 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
   <section class="screen active" id="s-vendas">
     <div class="card">
       <h2>🛒 Nova venda</h2>
+      <div id="pdv-alert" style="display:none;background:#fdecea;border:1.5px solid #f5c2bd;color:#b3261e;border-radius:12px;padding:11px 13px;margin:0 0 12px;font-size:14px;line-height:1.35"></div>
       <label>Adicionar produto</label>
       <select id="pdv-prod"><option value="">— selecione —</option></select>
       <button class="btn ghost" style="margin-top:10px" onclick="pdvAdd()">+ Adicionar ao carrinho</button>
@@ -564,6 +565,10 @@ function vendidoProduto(pid){
   let n=0; VENDAS.forEach(v=>(v.itens||[]).forEach(it=>{ if(it.id===pid) n+=it.qtd||0; })); return n;
 }
 function estoqueProduto(pid){ return colhidoProduto(pid)-vendidoProduto(pid); }
+/* quanto do produto já está no carrinho (venda ainda não finalizada) */
+function noCarrinho(pid){ const it=(typeof CART!=='undefined'?CART:[]).find(x=>x.id===pid); return it?it.qtd:0; }
+/* produtos sem nada em tamanho final — apenas para AVISAR (a venda de menores é permitida) */
+function produtosSemEstoque(){ return PRODUTOS.filter(p=>estoqueProduto(p.id)<=0); }
 
 function renderProdutos(){
   const box=$('prod-list'); if(!box) return;
@@ -633,6 +638,8 @@ function statusPlantio(p){ if(p.colhido) return 'Colhido'; return diasPara(p.pre
 
 function addDias(ds,n){ const d=ds?new Date(ds+'T00:00:00'):new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
 function diasPara(ds){ if(!ds) return 0; const h=new Date(); h.setHours(0,0,0,0); const a=new Date(ds+'T00:00:00'); return Math.round((a-h)/86400000); }
+/* há quantos dias o lote está plantado (nunca negativo) */
+function diasDesde(ds){ return ds ? Math.max(0, -diasPara(ds)) : 0; }
 
 function openPlantio(pl){
   if(needLogin()) return;
@@ -714,7 +721,12 @@ function renderPlantios(){
     const cor=STATUS_COR[st]||'#6b7787';
     let info;
     if(p.colhido){ info='colhido · '+(p.qtdColhida||0)+' un'; }
-    else{ const d=diasPara(p.previsaoColheita); info = d>0?('colhe em '+d+' dia(s)') : (d===0?'colhe hoje 🌾':('atrasado '+(-d)+' dia(s)')); }
+    else{
+      const ha=diasDesde(p.dataEntrada||p.dataPlantio);
+      const d=diasPara(p.previsaoColheita);
+      const falta = d>0?('faltam '+d+' dia(s) p/ colher') : (d===0?'colhe hoje 🌾':('atrasado '+(-d)+' dia(s)'));
+      info = 'plantado há '+ha+' dia(s) · '+falta;
+    }
     return `<div class="item" onclick='openPlantio(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="cursor:pointer">
       <div>
         <div class="name">${esc(p.produtoNome||'—')} · ${p.qtdPlantada||0} pés</div>
@@ -762,9 +774,20 @@ function refreshPdvSelects(){
   if(sp){ const cur=sp.value;
     sp.innerHTML='<option value="">— selecione —</option>'+PRODUTOS.map(p=>{
       const est=estoqueProduto(p.id);
-      return `<option value="${p.id}">${esc(p.nome)} — ${brl(p.preco)} · ${est} em estoque</option>`;
+      const marca = est>0 ? est+' em estoque' : '⚠️ sem tamanho final';
+      return `<option value="${p.id}">${esc(p.nome)} — ${brl(p.preco)} · ${marca}</option>`;
     }).join('');
     sp.value=cur;
+  }
+  // Alerta vermelho de aviso (não bloqueia): produtos sem tamanho final pronto
+  const alerta=$('pdv-alert');
+  if(alerta){
+    const sem=produtosSemEstoque();
+    if(sem.length){
+      alerta.style.display='block';
+      alerta.innerHTML='⚠️ <b>Sem tamanho final:</b> '+sem.map(p=>esc(p.nome)).join(', ')
+        +'<br><span style="opacity:.85">Você ainda pode vender menores. Se quiser, colha um lote na aba 🌱 Plantio.</span>';
+    }else{ alerta.style.display='none'; alerta.innerHTML=''; }
   }
   if(sc){ const cur=sc.value;
     sc.innerHTML='<option value="">— sem cliente —</option>'+CLIENTES.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
@@ -774,6 +797,8 @@ function refreshPdvSelects(){
 function pdvAdd(){
   const id=$('pdv-prod').value; if(!id){ toast('Escolha um produto'); return; }
   const p=PRODUTOS.find(x=>x.id===id); if(!p) return;
+  // Sem trava: dá pra vender menores mesmo sem tamanho final — só avisa.
+  if(estoqueProduto(id)<=0) toast('⚠️ '+p.nome+' sem tamanho final — vendendo menores');
   const ex=CART.find(x=>x.id===id);
   if(ex) ex.qtd++; else CART.push({id:p.id, nome:p.nome, preco:p.preco, qtd:1});
   renderCart();

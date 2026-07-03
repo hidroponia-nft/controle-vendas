@@ -178,6 +178,52 @@ VENDAS=[{itens:[{id:'p1',nome:'Brida',preco:5,qtd:200}],total:1000,qtdItens:200,
 CUSTOS_FIXOS=[{id:'f1',categoria:'Fertilizantes',valor:200,tipo:'Produção'}];
 REL_PERIODO='mes'; renderRelatorios();
 eq(document.getElementById('m-lbruto').textContent, brl(800), 'fixo de produção abate na margem bruta (1000-200)');
+
+/* ===== FASE: VENDAS — vender menores é permitido (sem trava, só aviso) ===== */
+suite('Vendas · vender menores é permitido');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5},{id:'p2',nome:'Roxa',preco:4}];
+PLANTIOS=[{id:'a',produtoId:'p1',colhido:true,qtdColhida:2}];   // p1 tem 2, p2 tem 0
+eq(estoqueProduto('p1'),2,'p1 com 2 em tamanho final');
+eq(estoqueProduto('p2'),0,'p2 sem tamanho final');
+document.getElementById('pdv-prod').value='p2';
+pdvAdd();
+eq(noCarrinho('p2'),1,'dá pra vender produto sem tamanho final (menores)');
+document.getElementById('pdv-prod').value='p1';
+pdvAdd(); pdvAdd(); pdvAdd();
+eq(noCarrinho('p1'),3,'dá pra vender além do pronto (2 pés por embalagem)');
+cartQty('p1',1);
+eq(noCarrinho('p1'),4,'botão + não trava a quantidade');
+cartQty('p1',-1);
+eq(noCarrinho('p1'),3,'botão − funciona normal');
+
+/* ===== FASE: VENDAS — alerta vermelho de produtos sem tamanho final ===== */
+suite('Vendas · alerta de sem estoque');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5},{id:'p2',nome:'Roxa',preco:4}];
+PLANTIOS=[{id:'a',produtoId:'p1',colhido:true,qtdColhida:5}];
+var sem=produtosSemEstoque();
+eq(sem.length,1,'só um produto sem tamanho final');
+eq(sem[0].id,'p2','o sem estoque é o p2 (Roxa)');
+refreshPdvSelects();
+var al=document.getElementById('pdv-alert');
+ok(al.style.display==='block','alerta vermelho fica visível');
+ok(al.innerHTML.includes('Roxa'),'alerta cita o produto sem tamanho final');
+PLANTIOS=[{id:'a',produtoId:'p1',colhido:true,qtdColhida:5},{id:'b',produtoId:'p2',colhido:true,qtdColhida:5}];
+refreshPdvSelects();
+eq(document.getElementById('pdv-alert').style.display,'none','sem produtos zerados, alerta some');
+
+/* ===== FASE: PLANTIO — tempo plantado e quanto falta pra colher ===== */
+suite('Plantio · tempo plantado e falta pra colher');
+reset();
+eq(diasDesde(hojeMais(-10)),10,'plantado há 10 dias');
+eq(diasDesde(hojeMais(3)),0,'data futura nunca fica negativa');
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+PLANTIOS=[{id:'a',estufa:'Estufa 1',produtoId:'p1',produtoNome:'Brida',qtdPlantada:100,colhido:false,dataEntrada:hojeMais(-10),previsaoColheita:hojeMais(18)}];
+renderPlantios();
+var pl=document.getElementById('pl-list').innerHTML;
+ok(pl.includes('plantado há 10 dia'),'mostra há quanto tempo está plantado');
+ok(pl.includes('faltam 18 dia'),'mostra quantos dias faltam pra colher');
 `;
 
 vm.createContext(sandbox);
