@@ -363,10 +363,10 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
 
 <div id="toast"></div>
 
-<!-- Firebase (compat) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<!-- Firebase (compat) — defer: a tela aparece antes, o Firebase conecta por tras -->
+<script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 /* ───────────────────────── UTIL ───────────────────────── */
 const $ = id => document.getElementById(id);
@@ -411,15 +411,20 @@ let FB_AUTH=null, FB_DB=null, FB_USER=null, FB_OK=false;
 let PRODUTOS=[], CLIENTES=[], VENDAS=[], PLANTIOS=[], CUSTOS=[], CUSTOS_FIXOS=[];
 let unsubP=null, unsubC=null, unsubV=null, unsubPl=null, unsubCu=null, unsubCf=null;
 
-try{
-  if(window.firebase && firebase.initializeApp){
-    firebase.initializeApp(firebaseConfig);
-    FB_AUTH=firebase.auth(); FB_DB=firebase.firestore();
-    FB_DB.enablePersistence({synchronizeTabs:true}).catch(()=>{});
-    FB_OK=true;
-    FB_AUTH.onAuthStateChanged(onAuth);
-  }
-}catch(e){ FB_OK=false; }
+function initFirebase(){
+  try{
+    if(window.firebase && firebase.initializeApp){
+      firebase.initializeApp(firebaseConfig);
+      FB_AUTH=firebase.auth(); FB_DB=firebase.firestore();
+      FB_DB.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+      FB_OK=true;
+      FB_AUTH.onAuthStateChanged(onAuth);
+    }
+  }catch(e){ FB_OK=false; }
+}
+/* Firebase carrega com defer (depois deste script). Espera ele estar pronto. */
+if(window.firebase && firebase.initializeApp){ initFirebase(); }
+else if(window.addEventListener){ window.addEventListener('DOMContentLoaded', initFirebase); }
 
 function onAuth(u){
   FB_USER=u;
