@@ -84,6 +84,23 @@ PLANTIOS=[{id:'a',produtoId:'p1',qtdPlantada:200,dataEntrada:hojeMais(-50)}];
 eq(estoqueProduto('p1'),0,'passado não conta como estoque');
 eq(perdaProduto('p1'),150,'passou: 200 plantado − 50 vendidos = 150 de perda');
 
+/* ===== FASE: ESTOQUE — pronto pra vender x ainda em cultivo ===== */
+suite('Estoque · pronto pra vender x em cultivo');
+reset();
+PRODUTOS=[{id:'p1',nome:'Alface Brida',preco:5}];
+PLANTIOS=[
+  {id:'r1',produtoId:'p1',qtdPlantada:300,dataEntrada:hojeMais(-30),previsaoColheita:hojeMais(-2)}, // no ponto
+  {id:'r2',produtoId:'p1',qtdPlantada:200,dataEntrada:hojeMais(-25),previsaoColheita:hojeMais(0)},  // colhe hoje (no ponto)
+  {id:'g1',produtoId:'p1',qtdPlantada:400,dataEntrada:hojeMais(-5), previsaoColheita:hojeMais(20)}  // ainda crescendo
+]; VENDAS=[];
+eq(estoqueProduto('p1'),500,'pronto pra vender = 300+200 (os dois no ponto)');
+eq(emCultivoProduto('p1'),400,'em cultivo = 400 (ainda na bancada, longe da colheita)');
+eq(perdaProduto('p1'),0,'nada passou de 45 dias → sem perda');
+// vende 350: FIFO tira dos prontos mais antigos primeiro, não do que está crescendo
+VENDAS=[{itens:[{id:'p1',qtd:350}]}];
+eq(estoqueProduto('p1'),150,'pronto após vender 350 = 500-350');
+eq(emCultivoProduto('p1'),400,'em cultivo intacto: a venda não sai do que ainda cresce');
+
 /* ===== FASE: RELATÓRIO — prontos pra colher por estufa ===== */
 suite('Relatório · prontos pra colher por estufa');
 reset();
@@ -297,6 +314,32 @@ var rz={}; linhasResumoExport().forEach(r=>rz[r[0]]=r[1]);
 eq(rz['Faturamento (R$)'],300,'resumo: faturamento = 300');
 eq(rz['Perda total (un)'],40,'resumo: perda = 100 plantado − 60 vendido');
 eq(rz['Taxa de perda (%)'],40,'resumo: taxa de perda = 40%');
+
+/* ===== FASE: CUSTO POR PÉ — break-even (custo ÷ produzidos e ÷ vendidos) ===== */
+suite('Custo por pé · break-even');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+PLANTIOS=[{id:'a',produtoId:'p1',produtoNome:'Brida',qtdPlantada:100,dataEntrada:hojeMais(-50)}]; // passado
+VENDAS=[{itens:[{id:'p1',nome:'Brida',preco:5,qtd:60}],total:300,qtdItens:60,clienteNome:'A',tsLocal:Date.now()}];
+CUSTOS=[
+  {id:'c1',categoria:'Fertilizantes',valor:80,tipo:'Produção',   data:hojeMais(0)},
+  {id:'c2',categoria:'Energia',      valor:40,tipo:'Operacional',data:hojeMais(0)}
+];
+CUSTOS_FIXOS=[];
+REL_PERIODO='tudo';
+eq(pesVendidosNoPeriodo(0),60,'vendidos no período = 60');
+eq(pesPerdidosNoPeriodo(0),40,'perdidos no período = 40 (100 plantado − 60 vendido, passado)');
+eq(custoTotalNoPeriodo('tudo'),120,'custo total = 80 produção + 40 operacional');
+eq(custoPorPe('tudo'),120/100,'custo por pé produzido = 1.20 (120 ÷ 100 produzidos)');
+eq(precoEquilibrio('tudo'),120/60,'preço de equilíbrio = 2.00 (120 ÷ 60 vendidos)');
+renderRelatorios();
+eq(document.getElementById('cpp-produzido').textContent, brl(1.2), 'card: custo por pé = R$ 1,20');
+eq(document.getElementById('cpp-equilibrio').textContent, brl(2),   'card: equilíbrio = R$ 2,00');
+eq(document.getElementById('cpp-precomedio').textContent, brl(5),   'card: preço médio = R$ 5,00 (300 ÷ 60)');
+eq(document.getElementById('cpp-lucro').textContent, brl(3),        'card: lucro por pé = 5 − 2 = R$ 3,00');
+// sem vendas no período → não quebra, zera os números
+reset(); PRODUTOS=[{id:'p1',nome:'Brida',preco:5}]; REL_PERIODO='tudo'; renderRelatorios();
+eq(document.getElementById('cpp-equilibrio').textContent, brl(0), 'sem vendas: equilíbrio = R$ 0,00 (sem divisão por zero)');
 `;
 
 vm.createContext(sandbox);

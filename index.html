@@ -323,6 +323,14 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
       <p class="muted small" id="m-fixonote" style="margin-top:10px"></p>
     </div>
     <div class="card">
+      <h2>🌱 Custo por pé</h2>
+      <div class="kv"><span>Custo por pé produzido</span><b id="cpp-produzido">R$ 0,00</b></div>
+      <div class="kv"><span>Preço médio de venda</span><b id="cpp-precomedio">R$ 0,00</b></div>
+      <div class="kv"><span>Preço de equilíbrio</span><b id="cpp-equilibrio">R$ 0,00</b></div>
+      <div class="kv"><span><b>Lucro por pé vendido</b></span><b id="cpp-lucro">R$ 0,00</b></div>
+      <p class="muted small" id="cpp-nota" style="margin-top:10px"></p>
+    </div>
+    <div class="card">
       <h2>👥 Por cliente</h2>
       <div id="r-clientes"><div class="empty">Sem dados</div></div>
     </div>
@@ -579,7 +587,7 @@ function openProd(p){
     <input id="m-pnome" value="${esc(ed.nome||'')}" placeholder="Ex.: Alface crespa">
     <label>Preço de venda (R$)</label>
     <input id="m-ppreco" type="number" inputmode="decimal" step="0.01" value="${ed.preco!=null?ed.preco:''}" placeholder="0,00">
-    ${ed.id?`<p class="muted small" style="margin:12px 0 0">📦 Disponível pra vender: <b>${estoqueProduto(ed.id)} un</b><br>É o que está <b>plantado</b> na aba 🌱 Plantio (ainda no ponto) menos o que já foi vendido. O que passar de ${VIDA_UTIL_DIAS} dias sem vender vira perda automaticamente (aba 📉 Perdas).</p>`
+    ${ed.id?`<p class="muted small" style="margin:12px 0 0">📦 Pronto pra vender: <b>${estoqueProduto(ed.id)} un</b>${emCultivoProduto(ed.id)>0?` · 🌱 <b>${emCultivoProduto(ed.id)}</b> ainda crescendo`:''}<br><b>Pronto</b> = plantios que já passaram da previsão de colheita, menos o que foi vendido. O que ainda está na bancada aparece como <b>crescendo</b>. O que passar de ${VIDA_UTIL_DIAS} dias sem vender vira perda (aba 📉 Perdas).</p>`
             :`<p class="muted small" style="margin:12px 0 0">O estoque deste produto virá do que for plantado na aba 🌱 Plantio.</p>`}
     <button class="btn green" onclick="saveProd('${ed.id||''}')">Salvar</button>
     ${ed.id?`<button class="btn danger" onclick="delProd('${ed.id}')">Excluir produto</button>`:''}
@@ -620,8 +628,12 @@ function alocaVendas(pid){
     return {p, plantado, vendido, sobra:plantado-vendido, passado:plantioPassado(p)};
   });
 }
-/* estoque disponível = sobra dos plantios ainda no ponto (não passados) */
-function estoqueProduto(pid){ return alocaVendas(pid).filter(x=>!x.passado).reduce((s,x)=>s+x.sobra,0); }
+/* está no ponto de venda? já passou da previsão de colheita e ainda não passou dos 45 dias */
+function plantioPronto(p){ return !plantioPassado(p) && diasPara(p.previsaoColheita)<=0; }
+/* PRONTO PRA VENDER = sobra dos plantios já no ponto de colheita, menos o vendido */
+function estoqueProduto(pid){ return alocaVendas(pid).filter(x=>plantioPronto(x.p)).reduce((s,x)=>s+x.sobra,0); }
+/* EM CULTIVO = sobra dos plantios ainda na bancada, que não atingiram a previsão de colheita */
+function emCultivoProduto(pid){ return alocaVendas(pid).filter(x=>!plantioPassado(x.p) && !plantioPronto(x.p)).reduce((s,x)=>s+x.sobra,0); }
 /* perda = sobra dos plantios que já passaram do ponto */
 function perdaProduto(pid){ return alocaVendas(pid).filter(x=>x.passado).reduce((s,x)=>s+x.sobra,0); }
 /* sobra/vendido por plantio (para exibir nas listas) — mapa id → {vendido,sobra,passado} */
@@ -640,12 +652,12 @@ function renderProdutos(){
   if(!FB_USER){ box.innerHTML='<div class="empty">Entre na conta para ver seus produtos.</div>'; return; }
   if(!PRODUTOS.length){ box.innerHTML='<div class="empty">Nenhum produto. Toque em <b>+ Novo</b>.</div>'; return; }
   box.innerHTML = PRODUTOS.map(p=>{
-    const est=estoqueProduto(p.id);
+    const est=estoqueProduto(p.id), cult=emCultivoProduto(p.id);
     return `
     <div class="item" onclick='openProd(${JSON.stringify(p).replace(/'/g,"&#39;")})' style="cursor:pointer">
       <div>
         <div class="name">${esc(p.nome)}</div>
-        <div class="sub">${brl(p.preco)}</div>
+        <div class="sub">${brl(p.preco)}${cult>0?` · 🌱 ${cult} crescendo`:''}</div>
       </div>
       <span class="pill ${est<=5?'low':''}">${est} un</span>
     </div>`;}).join('');
@@ -857,8 +869,8 @@ function refreshPdvSelects(){
   const sp=$('pdv-prod'); const sc=$('pdv-cli');
   if(sp){ const cur=sp.value;
     sp.innerHTML='<option value="">— selecione —</option>'+PRODUTOS.map(p=>{
-      const est=estoqueProduto(p.id);
-      const marca = est>0 ? est+' disponível' : '⚠️ sem estoque';
+      const est=estoqueProduto(p.id), cult=emCultivoProduto(p.id);
+      const marca = est>0 ? est+' pronto' : (cult>0 ? '🌱 '+cult+' crescendo' : '⚠️ sem estoque');
       return `<option value="${p.id}">${esc(p.nome)} — ${brl(p.preco)} · ${marca}</option>`;
     }).join('');
     sp.value=cur;
@@ -869,8 +881,11 @@ function refreshPdvSelects(){
     const sem=produtosSemEstoque();
     if(sem.length){
       alerta.style.display='block';
-      alerta.innerHTML='⚠️ <b>Sem estoque disponível:</b> '+sem.map(p=>esc(p.nome)).join(', ')
-        +'<br><span style="opacity:.85">Você ainda pode vender (menores). Falta plantar ou o plantio ainda não está no ponto.</span>';
+      alerta.innerHTML='⚠️ <b>Nada pronto pra vender:</b> '+sem.map(p=>{
+          const c=emCultivoProduto(p.id);
+          return esc(p.nome)+(c>0?` <span style="opacity:.8">(🌱 ${c} crescendo)</span>`:'');
+        }).join(', ')
+        +'<br><span style="opacity:.85">Você ainda pode vender (menores). Se está crescendo, é só esperar chegar no ponto.</span>';
     }else{ alerta.style.display='none'; alerta.innerHTML=''; }
   }
   if(sc){ const cur=sc.value;
@@ -1107,6 +1122,35 @@ function renderPerdas(){
 function setPeriodoCusto(p){ CUSTO_PERIODO=p; document.querySelectorAll('#cu-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderCustos(); }
 function corLucro(el,v){ if(el) el.style.color = v>=0 ? '#2e7d32' : '#c62828'; }
 
+/* ── CUSTO POR PÉ / PREÇO DE EQUILÍBRIO (break-even) ──
+   Custo total do período = custos avulsos (produção + operacional) + custos fixos proporcionais.
+   Pés produzidos = vendidos no período + perdidos no período (mesma regra da aba 📉 Perdas).
+   • Custo por pé produzido = custo ÷ produzidos (espalha o custo por tudo que saiu, inclusive o perdido).
+   • Preço de equilíbrio    = custo ÷ VENDIDOS (só o vendido gera receita; a perda encarece cada pé vendido).
+   • Lucro por pé vendido   = preço médio − preço de equilíbrio = lucro líquido ÷ vendidos. */
+function pesVendidosNoPeriodo(ini){
+  let n=0; VENDAS.forEach(v=>{ if((v.tsLocal||0)>=ini)(v.itens||[]).forEach(it=>n+=it.qtd||0); }); return n;
+}
+function pesPerdidosNoPeriodo(ini){
+  let n=0; [...new Set(PLANTIOS.map(p=>p.produtoId))].forEach(pid=>alocaVendas(pid).forEach(x=>{
+    if(!x.passado) return;                                              // só plantio que passou do ponto
+    if(dataParaTs(addDias(x.p.dataEntrada||x.p.dataPlantio, VIDA_UTIL_DIAS))<ini) return; // fora do período
+    n+=x.sobra;
+  })); return n;
+}
+function custoTotalNoPeriodo(periodo){
+  const ini=periodoIni(periodo);
+  return custosNoPeriodo(ini).reduce((s,c)=>s+(c.valor||0),0) + fixosPorTipo(periodo).total;
+}
+function custoPorPe(periodo){
+  const ini=periodoIni(periodo), prod=pesVendidosNoPeriodo(ini)+pesPerdidosNoPeriodo(ini);
+  return prod ? custoTotalNoPeriodo(periodo)/prod : 0;
+}
+function precoEquilibrio(periodo){
+  const vend=pesVendidosNoPeriodo(periodoIni(periodo));
+  return vend ? custoTotalNoPeriodo(periodo)/vend : 0;
+}
+
 /* ───────────────────────── RELATÓRIOS ───────────────────────── */
 function renderRelatorios(){
   if(!$('r-receita')) return;
@@ -1146,6 +1190,20 @@ function renderRelatorios(){
     ? `Inclui custos fixos: ${brl(fx.total)} ${periodoLabel(REL_PERIODO)} (de ${brl(fixosMensalTotal())}/mês).`
     : '';
 
+  // Custo por pé / preço de equilíbrio (break-even) — usa receita, custosTot e ini já calculados acima
+  const vend=pesVendidosNoPeriodo(ini), prod=vend+pesPerdidosNoPeriodo(ini);
+  const cpp=prod?custosTot/prod:0;            // custo por pé produzido (vendido + perdido)
+  const precoMed=vend?receita/vend:0;         // preço médio efetivo por pé vendido
+  const equil=vend?custosTot/vend:0;          // preço mínimo por pé vendido pra empatar
+  const lucroPe=precoMed-equil;               // = lucro líquido ÷ pés vendidos
+  setTxt('cpp-produzido',brl(cpp)); setTxt('cpp-precomedio',brl(precoMed));
+  setTxt('cpp-equilibrio',brl(equil)); setTxt('cpp-lucro',brl(lucroPe));
+  corLucro($('cpp-lucro'),lucroPe);
+  const notaCpp=$('cpp-nota');
+  if(notaCpp) notaCpp.textContent = vend
+    ? `Cada pé vendido precisa render pelo menos ${brl(equil)} pra pagar tudo (produção + operacional + fixos + perdas). Você vende a ${brl(precoMed)} em média.`
+    : 'Registre vendas e custos no período pra calcular o custo por pé.';
+
   const arrCli=Object.entries(porCliente).sort((a,b)=>b[1].total-a[1].total);
   $('r-clientes').innerHTML = arrCli.length ? arrCli.map(([nome,o])=>`
     <div class="item"><div><div class="name">${esc(nome)}</div><div class="sub">${o.n} compra(s)</div></div>
@@ -1168,7 +1226,7 @@ function renderRelatorios(){
   }).join('') : '<div class="empty">Nenhuma venda '+periodoLabel(REL_PERIODO)+'</div>';
 }
 function delVenda(id){
-  if(!confirm('Excluir esta venda? (não devolve o estoque)')) return;
+  if(!confirm('Excluir esta venda? As unidades voltam a ficar disponíveis no estoque.')) return;
   col('vendas').doc(id).delete().then(()=>toast('Venda excluída'));
 }
 

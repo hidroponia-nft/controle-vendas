@@ -3,7 +3,7 @@
    ao mesmo tempo, baixa a versao nova por tras para a proxima abertura. Assim fica
    rapido para abrir e continua atualizando sozinho (sem cache teimoso no iOS). */
 
-const CACHE = 'vendas-app-v10';
+const CACHE = 'vendas-app-v11';
 const CORE = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (e) => {
