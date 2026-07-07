@@ -1059,7 +1059,7 @@ function periodoIni(p){
   const n=new Date();
   if(p==='hoje')   return new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime();
   if(p==='semana') return Date.now()-7*86400000;        // últimos 7 dias
-  if(p==='mes')    return new Date(n.getFullYear(),n.getMonth(),1).getTime();
+  if(p==='mes')    return Date.now()-30*86400000;       // últimos 30 dias (janela rolante — casa com o custo fixo cheio e evita distorção no começo do mês)
   return 0;                                             // 'tudo'
 }
 function periodoLabel(p){ return p==='semana'?'na semana':p==='mes'?'no mês':'no período'; }

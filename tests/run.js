@@ -220,6 +220,21 @@ CUSTOS_FIXOS=[{id:'f1',categoria:'Fertilizantes',valor:200,tipo:'Produção'}];
 REL_PERIODO='mes'; renderRelatorios();
 eq(document.getElementById('m-lbruto').textContent, brl(800), 'fixo de produção abate na margem bruta (1000-200)');
 
+/* ===== FASE: PERÍODO — "Mês" é janela rolante de 30 dias (sem distorção no começo do mês) ===== */
+suite('Relatório · "Mês" = últimos 30 dias (coerente com o custo fixo cheio)');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+VENDAS=[
+  {itens:[{id:'p1',nome:'Brida',preco:5,qtd:100}],total:500,qtdItens:100,clienteNome:'A',tsLocal:Date.now()-20*86400000}, // 20 dias atrás → dentro
+  {itens:[{id:'p1',nome:'Brida',preco:5,qtd:40}], total:200,qtdItens:40, clienteNome:'B',tsLocal:Date.now()-40*86400000}  // 40 dias atrás → fora
+];
+CUSTOS_FIXOS=[{id:'f1',categoria:'Energia',valor:600,tipo:'Operacional'}];
+eq(fatorPeriodo('mes'), 1, 'custo fixo do mês entra cheio (fator 1) — casa com a janela de 30 dias');
+REL_PERIODO='mes'; renderRelatorios();
+eq(document.getElementById('r-receita').textContent, brl(500), 'mês (30d): inclui a venda de 20 dias atrás, exclui a de 40');
+eq(document.getElementById('r-custos').textContent, brl(600), 'custos do mês = 600 (fixo cheio, não distorce)');
+eq(document.getElementById('m-lliquido').textContent, brl(-100), 'lucro líquido = 500 − 600 = −100 (coerente: 30d de receita vs 30d de custo)');
+
 /* ===== FASE: VENDAS — vender menores é permitido (sem trava, só aviso) ===== */
 suite('Vendas · vender menores é permitido');
 reset();
