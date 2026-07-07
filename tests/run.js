@@ -306,6 +306,18 @@ var pl=document.getElementById('pl-list').innerHTML;
 ok(pl.includes('plantado há 10 dia'),'mostra há quanto tempo está plantado');
 ok(pl.includes('faltam 18 dia'),'mostra quantos dias faltam pra colher');
 
+/* ===== FASE: PLANTIO — dias na bancada sugeridos pela estação ===== */
+suite('Plantio · dias na bancada por estação (Hemisfério Sul)');
+eq(estacaoDe('2026-01-15'),'verao','janeiro = verão');
+eq(estacaoDe('2026-12-15'),'verao','dezembro = verão');
+eq(estacaoDe('2026-04-15'),'outono','abril = outono');
+eq(estacaoDe('2026-07-15'),'inverno','julho = inverno');
+eq(estacaoDe('2026-10-15'),'primavera','outubro = primavera');
+eq(diasBancadaPorEstacao('2026-07-15'),35,'inverno = ciclo mais longo (35 dias)');
+eq(diasBancadaPorEstacao('2026-01-15'),24,'verão = ciclo mais curto (24 dias)');
+eq(diasBancadaPorEstacao('2026-04-15'),28,'outono = padrão (28 dias)');
+ok(diasBancadaPorEstacao('2026-07-15') > diasBancadaPorEstacao('2026-01-15'),'inverno demora mais que verão');
+
 /* ===== FASE: PLANTIO — bandejas (cada bandeja = 200 pés) ===== */
 suite('Plantio · bandejas (200 pés cada)');
 eq(bandejasDe({qtdBandejas:3}),3,'usa o nº de bandejas quando existe');

@@ -721,6 +721,26 @@ function renderClientes(){
    o que conta é o tempo na bancada. Estoque e perda são automáticos (plantio × vendas). */
 const ESTUFAS = ['Estufa 1','Estufa 2'];
 const BANCADA_PADRAO = 28; // dias na bancada final até a colheita (alface Brida; ajuste por estação)
+/* Dias na bancada sugeridos por ESTAÇÃO (Hemisfério Sul). Base na literatura de alface crespa
+   em NFT: fase final ~22–25 dias em condições amenas/quentes (modelo Furlani; HidroGood; GroHo);
+   faixa ótima 15–25 °C; calor acelera mas arrisca espigamento; frio retarda ~25–40% o ciclo
+   (Embrapa Hortaliças; fontes de manejo). São SUGESTÕES — cada lote ainda pode ter os dias editados. */
+const BANCADA_POR_ESTACAO = { verao:24, outono:28, inverno:35, primavera:28 };
+const ESTACAO_INFO = {
+  verao:    {nome:'Verão',     emoji:'☀️'},
+  outono:   {nome:'Outono',    emoji:'🍂'},
+  inverno:  {nome:'Inverno',   emoji:'❄️'},
+  primavera:{nome:'Primavera', emoji:'🌸'}
+};
+/* estação a partir da data (mês) — Hemisfério Sul (Brasil) */
+function estacaoDe(ds){
+  const m=(ds?new Date(ds+'T00:00:00'):new Date()).getMonth()+1;
+  if(m===12||m<=2) return 'verao';
+  if(m<=5) return 'outono';
+  if(m<=8) return 'inverno';
+  return 'primavera';
+}
+function diasBancadaPorEstacao(ds){ return BANCADA_POR_ESTACAO[estacaoDe(ds)]; }
 const PES_POR_BANDEJA = 200; // cada bandeja = 200 pés plantados
 const STATUS_COR = {'Na bancada':'#1e88e5','Pronto p/ colher':'#ef6c00','Passado':'#d32f2f'};
 /* nº de bandejas do plantio (converte pés antigos automaticamente) */
@@ -738,7 +758,7 @@ function openPlantio(pl){
   if(!PRODUTOS.length){ toast('Cadastre um produto primeiro 📦'); goTo('produtos'); return; }
   const hoje=new Date().toISOString().slice(0,10);
   const entrada = ed.dataEntrada || ed.dataPlantio || hoje;
-  const dias = ed.diasBancada!=null ? ed.diasBancada : BANCADA_PADRAO;
+  const dias = ed.diasBancada!=null ? ed.diasBancada : diasBancadaPorEstacao(entrada);
   const prev = ed.previsaoColheita || addDias(entrada, dias);
   openModal(`
     <h3>${ed.id?'✏️ Editar plantio':'🌱 Novo plantio'}</h3>
@@ -752,23 +772,39 @@ function openPlantio(pl){
         <input id="m-plband" type="number" inputmode="numeric" value="${ed.id?bandejasDe(ed):''}" placeholder="Ex.: 1" oninput="plRecalcPes()">
         <div class="muted small" id="m-plpes" style="margin-top:4px">200 pés por bandeja</div>
       </div>
-      <div><label>Dias na bancada</label><input id="m-pldias" type="number" inputmode="numeric" value="${dias}" oninput="plRecalcPrev()"></div>
+      <div><label>Dias na bancada</label><input id="m-pldias" type="number" inputmode="numeric" value="${dias}" oninput="plRecalcPrev()">
+        <div class="muted small" id="m-plestacao" style="margin-top:4px"></div></div>
     </div>
     <div class="grid2">
-      <div><label>Entrada na bancada</label><input id="m-plentrada" type="date" value="${entrada}" oninput="plRecalcPrev()"></div>
+      <div><label>Entrada na bancada</label><input id="m-plentrada" type="date" value="${entrada}" oninput="plEstacao(${ed.id?'false':'true'})"></div>
       <div><label>Previsão colheita</label><input id="m-plprev" type="date" value="${prev}"></div>
     </div>
-    <p class="muted small" style="margin:8px 0 0">Mudas chegam com ~10 dias e vão direto pra bancada final. A previsão é <b>entrada + dias na bancada</b> — aumente no frio, diminua no calor.</p>
+    <p class="muted small" style="margin:8px 0 0">Mudas chegam com ~10 dias e vão direto pra bancada final. A previsão é <b>entrada + dias na bancada</b>. Os dias já vêm <b>sugeridos pela estação</b> (frio = ciclo mais longo, calor = mais curto) — ajuste à mão se quiser.</p>
     ${ed.id&&plantioPassado(ed)?`<p class="small" style="margin-top:8px;color:var(--danger);font-weight:700">⚠️ Passado há ${diasDesdePasso(ed)} dia(s) — o que não foi vendido já entrou como perda (aba 📉 Perdas).</p>`:''}
     <button class="btn green" onclick="savePlantio('${ed.id||''}')">Salvar</button>
     ${ed.id?`<button class="btn danger" onclick="delPlantio('${ed.id}')">Excluir plantio</button>`:''}
     <button class="btn ghost" onclick="closeModal()">Cancelar</button>
   `);
   plRecalcPes();
+  plMostraEstacao();
 }
 function plRecalcPrev(){
   const e=$('m-plentrada'), d=$('m-pldias'), pv=$('m-plprev');
   if(e&&d&&pv&&e.value){ pv.value = addDias(e.value, parseInt(d.value)||0); }
+}
+/* mudou a data de entrada: em plantio novo, re-sugere os dias na bancada pela estação da nova data */
+function plEstacao(novo){
+  const e=$('m-plentrada'), d=$('m-pldias');
+  if(novo && e && d && e.value){ d.value = diasBancadaPorEstacao(e.value); }
+  plRecalcPrev();
+  plMostraEstacao();
+}
+/* mostra a estação detectada e os dias sugeridos, com base na data de entrada */
+function plMostraEstacao(){
+  const out=$('m-plestacao'); if(!out) return;
+  const e=$('m-plentrada'), ds=(e&&e.value)?e.value:null;
+  const inf=ESTACAO_INFO[estacaoDe(ds)], sug=diasBancadaPorEstacao(ds);
+  out.textContent = `${inf.emoji} ${inf.nome}: sugerimos ${sug} dias na bancada (frio retarda, calor acelera).`;
 }
 function plRecalcPes(){
   const b=$('m-plband'), out=$('m-plpes');
