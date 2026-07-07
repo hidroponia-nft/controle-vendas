@@ -101,6 +101,26 @@ VENDAS=[{itens:[{id:'p1',qtd:350}]}];
 eq(estoqueProduto('p1'),150,'pronto após vender 350 = 500-350');
 eq(emCultivoProduto('p1'),400,'em cultivo intacto: a venda não sai do que ainda cresce');
 
+/* ===== FASE: ATRASADOS — passou da colheita, vivo e não vendido ===== */
+suite('Atrasados · passou do ponto e não vendeu');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+PLANTIOS=[
+  {id:'a',produtoId:'p1',qtdPlantada:200,dataEntrada:hojeMais(-20),previsaoColheita:hojeMais(-3)}, // atrasado 3 dias
+  {id:'b',produtoId:'p1',qtdPlantada:100,dataEntrada:hojeMais(-5), previsaoColheita:hojeMais(10)}   // ainda em cultivo
+];
+VENDAS=[{itens:[{id:'p1',qtd:50}]}]; // FIFO: os 50 saem do lote mais antigo (o atrasado)
+eq(atrasadoProduto('p1'),150,'atrasado = 200 do lote vencido − 50 vendidos');
+eq(emCultivoProduto('p1'),100,'em cultivo = 100 (lote b ainda antes do ponto)');
+renderPlantios();
+eq(document.getElementById('pl-atrasados').textContent,150,'painel: atrasados = 150');
+// ao passar de 45 dias, sai de "atrasado" e vira perda
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+PLANTIOS=[{id:'a',produtoId:'p1',qtdPlantada:200,dataEntrada:hojeMais(-50),previsaoColheita:hojeMais(-22)}]; VENDAS=[];
+eq(atrasadoProduto('p1'),0,'passou de 45 dias → não é mais atrasado (virou perda)');
+eq(perdaProduto('p1'),200,'agora conta como perda');
+
 /* ===== FASE: RELATÓRIO — prontos pra colher por estufa ===== */
 suite('Relatório · prontos pra colher por estufa');
 reset();
@@ -120,6 +140,7 @@ suite('Resumo · contadores do topo');
 renderPlantios();
 eq(document.getElementById('pl-cultivo').textContent, 470, 'pés em cultivo = 470 (exclui passado)');
 eq(document.getElementById('pl-prontos').textContent, 270, 'prontos p/ colher = 270 pés');
+eq(document.getElementById('pl-atrasados').textContent, 150, 'atrasados = 150 (lPron passou do ponto; lE1 colhe hoje ainda não conta)');
 eq(document.getElementById('pl-lotes').textContent, 3, 'plantios na bancada = 3 (exclui passado)');
 
 /* ===== FASE: VENDAS — total e itens do carrinho ===== */
