@@ -354,7 +354,7 @@ nav button.active .ic{transform:translateY(-1px) scale(1.12)}
   <section class="screen" id="s-perdas">
     <div class="card">
       <h2>📉 Perdas</h2>
-      <p class="muted small" style="margin:0 0 10px">Perda = o que foi <b>plantado</b> e não foi <b>vendido</b> nos plantios que passaram do ponto (+45 dias — morreu por doença, clima, etc.). É automático.</p>
+      <p class="muted small" style="margin:0 0 10px">Perda = o que foi <b>plantado</b> e não foi <b>vendido</b> nos plantios que passaram do ponto de colheita (mais de 14 dias após a previsão — morreu por doença, clima, etc.). É automático.</p>
       <div class="seg" id="pd-seg">
         <button data-p="semana" onclick="setPeriodoPerda('semana')">Semana</button>
         <button data-p="mes" class="on" onclick="setPeriodoPerda('mes')">Mês</button>
@@ -588,7 +588,7 @@ function openProd(p){
     <input id="m-pnome" value="${esc(ed.nome||'')}" placeholder="Ex.: Alface crespa">
     <label>Preço de venda (R$)</label>
     <input id="m-ppreco" type="number" inputmode="decimal" step="0.01" value="${ed.preco!=null?ed.preco:''}" placeholder="0,00">
-    ${ed.id?`<p class="muted small" style="margin:12px 0 0">📦 Pronto pra vender: <b>${estoqueProduto(ed.id)} un</b>${emCultivoProduto(ed.id)>0?` · 🌱 <b>${emCultivoProduto(ed.id)}</b> ainda crescendo`:''}<br><b>Pronto</b> = plantios que já passaram da previsão de colheita, menos o que foi vendido. O que ainda está na bancada aparece como <b>crescendo</b>. O que passar de ${VIDA_UTIL_DIAS} dias sem vender vira perda (aba 📉 Perdas).</p>`
+    ${ed.id?`<p class="muted small" style="margin:12px 0 0">📦 Pronto pra vender: <b>${estoqueProduto(ed.id)} un</b>${emCultivoProduto(ed.id)>0?` · 🌱 <b>${emCultivoProduto(ed.id)}</b> ainda crescendo`:''}<br><b>Pronto</b> = plantios que já passaram da previsão de colheita, menos o que foi vendido. O que ainda está na bancada aparece como <b>crescendo</b>. O que passar do ponto (mais de ${TOLERANCIA_COLHEITA} dias após a previsão de colheita) sem vender vira perda (aba 📉 Perdas).</p>`
             :`<p class="muted small" style="margin:12px 0 0">O estoque deste produto virá do que for plantado na aba 🌱 Plantio.</p>`}
     <button class="btn green" onclick="saveProd('${ed.id||''}')">Salvar</button>
     ${ed.id?`<button class="btn danger" onclick="delProd('${ed.id}')">Excluir produto</button>`:''}
@@ -609,11 +609,17 @@ function delProd(id){
   col('produtos').doc(id).delete().then(()=>{ closeModal(); toast('Produto excluído'); });
 }
 /* ── ESTOQUE E PERDAS (100% automático: só plantio × vendas) ──
-   Um plantio "passa do ponto" sozinho após VIDA_UTIL_DIAS dias da entrada na bancada.
+   Um plantio "passa do ponto" sozinho TOLERANCIA_COLHEITA dias depois da previsão de
+   colheita DAQUELE lote — assim respeita a estação (no frio a alface fica mais dias na
+   bancada, e a previsão de cada lote já reflete isso).
    Estoque disponível = o que está plantado, ainda no ponto, e não foi vendido.
    O que passou do ponto e não foi vendido vira PERDA automaticamente (doença, clima, etc.). */
-const VIDA_UTIL_DIAS = 45; // depois disso o plantio é considerado passado/perdido
-function plantioPassado(p){ return diasDesde(p.dataEntrada||p.dataPlantio) > VIDA_UTIL_DIAS; }
+const TOLERANCIA_COLHEITA = 14; // dias que a alface aguenta no ponto após a previsão antes de virar perda
+/* previsão de colheita do lote (usa a do lote; se faltar, deriva de entrada + dias padrão de bancada) */
+function previsaoDoLote(p){ return p.previsaoColheita || addDias(p.dataEntrada||p.dataPlantio, BANCADA_PADRAO); }
+/* dias desde que o lote passou do ponto (>0 = já virou perda) */
+function diasDesdePasso(p){ return -diasPara(previsaoDoLote(p)) - TOLERANCIA_COLHEITA; }
+function plantioPassado(p){ return diasDesdePasso(p) > 0; }
 function vendidoProduto(pid){
   let n=0; VENDAS.forEach(v=>(v.itens||[]).forEach(it=>{ if(it.id===pid) n+=it.qtd||0; })); return n;
 }
@@ -629,7 +635,7 @@ function alocaVendas(pid){
     return {p, plantado, vendido, sobra:plantado-vendido, passado:plantioPassado(p)};
   });
 }
-/* está no ponto de venda? já passou da previsão de colheita e ainda não passou dos 45 dias */
+/* está no ponto de venda? já passou da previsão de colheita e ainda não passou do ponto (virou perda) */
 function plantioPronto(p){ return !plantioPassado(p) && diasPara(p.previsaoColheita)<=0; }
 /* PRONTO PRA VENDER = sobra dos plantios já no ponto de colheita, menos o vendido */
 function estoqueProduto(pid){ return alocaVendas(pid).filter(x=>plantioPronto(x.p)).reduce((s,x)=>s+x.sobra,0); }
@@ -753,7 +759,7 @@ function openPlantio(pl){
       <div><label>Previsão colheita</label><input id="m-plprev" type="date" value="${prev}"></div>
     </div>
     <p class="muted small" style="margin:8px 0 0">Mudas chegam com ~10 dias e vão direto pra bancada final. A previsão é <b>entrada + dias na bancada</b> — aumente no frio, diminua no calor.</p>
-    ${ed.id&&plantioPassado(ed)?`<p class="small" style="margin-top:8px;color:var(--danger);font-weight:700">⚠️ Passado há ${diasDesde(ed.dataEntrada||ed.dataPlantio)-VIDA_UTIL_DIAS} dia(s) — o que não foi vendido já entrou como perda (aba 📉 Perdas).</p>`:''}
+    ${ed.id&&plantioPassado(ed)?`<p class="small" style="margin-top:8px;color:var(--danger);font-weight:700">⚠️ Passado há ${diasDesdePasso(ed)} dia(s) — o que não foi vendido já entrou como perda (aba 📉 Perdas).</p>`:''}
     <button class="btn green" onclick="savePlantio('${ed.id||''}')">Salvar</button>
     ${ed.id?`<button class="btn danger" onclick="delPlantio('${ed.id}')">Excluir plantio</button>`:''}
     <button class="btn ghost" onclick="closeModal()">Cancelar</button>
@@ -802,12 +808,12 @@ function renderPlantios(){
   if($('pl-prontos')) $('pl-prontos').textContent=prontos;
   if($('pl-atrasados')){ $('pl-atrasados').textContent=atrasados; $('pl-atrasados').style.color=atrasados>0?'#ef6c00':''; }
   if($('pl-lotes')) $('pl-lotes').textContent=vivos.length;
-  // Alerta automático: plantios que passaram de 45 dias (passados/perdidos)
+  // Alerta automático: plantios que passaram do ponto de colheita (passados/perdidos)
   const alerta=$('pl-alerta');
   if(alerta){
     if(passados.length){
       alerta.style.display='block';
-      alerta.innerHTML='⚠️ <b>'+passados.length+' plantio(s) passaram de '+VIDA_UTIL_DIAS+' dias</b> e provavelmente se perderam (doença, clima, passaram do ponto). O que não foi vendido já conta como perda na aba 📉 Perdas.';
+      alerta.innerHTML='⚠️ <b>'+passados.length+' plantio(s) passaram do ponto de colheita</b> e provavelmente se perderam (doença, clima, passaram do ponto). O que não foi vendido já conta como perda na aba 📉 Perdas.';
     }else{ alerta.style.display='none'; alerta.innerHTML=''; }
   }
   renderColheita();
@@ -822,7 +828,7 @@ function renderPlantios(){
     let info;
     if(plantioPassado(p)){
       const perda=x?x.sobra:(p.qtdPlantada||0);
-      info='passado há '+(diasDesde(p.dataEntrada||p.dataPlantio)-VIDA_UTIL_DIAS)+' dia(s) · vendido '+(x?x.vendido:0)+' · perda '+perda;
+      info='passado há '+diasDesdePasso(p)+' dia(s) · vendido '+(x?x.vendido:0)+' · perda '+perda;
     }else{
       const ha=diasDesde(p.dataEntrada||p.dataPlantio);
       const d=diasPara(p.previsaoColheita);
@@ -1094,7 +1100,7 @@ function renderPerdas(){
   ids.forEach(pid=>{
     alocaVendas(pid).forEach(x=>{
       if(!x.passado) return;                                     // só plantios que passaram do ponto
-      const morte=dataParaTs(addDias(x.p.dataEntrada||x.p.dataPlantio, VIDA_UTIL_DIAS));
+      const morte=dataParaTs(addDias(previsaoDoLote(x.p), TOLERANCIA_COLHEITA));
       if(morte<ini) return;                                      // fora do período
       const k=pid||'—';
       const g=mapa[k]||(mapa[k]={nome:x.p.produtoNome||'—', plantado:0, vendido:0, perda:0});
@@ -1141,7 +1147,7 @@ function pesVendidosNoPeriodo(ini){
 function pesPerdidosNoPeriodo(ini){
   let n=0; [...new Set(PLANTIOS.map(p=>p.produtoId))].forEach(pid=>alocaVendas(pid).forEach(x=>{
     if(!x.passado) return;                                              // só plantio que passou do ponto
-    if(dataParaTs(addDias(x.p.dataEntrada||x.p.dataPlantio, VIDA_UTIL_DIAS))<ini) return; // fora do período
+    if(dataParaTs(addDias(previsaoDoLote(x.p), TOLERANCIA_COLHEITA))<ini) return; // fora do período
     n+=x.sobra;
   })); return n;
 }

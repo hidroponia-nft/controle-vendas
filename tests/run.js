@@ -67,7 +67,7 @@ var lPron={id:'b',estufa:'Estufa 2',produtoId:'p1',produtoNome:'Alface Brida',qt
 var lColh={id:'c',estufa:'Estufa 1',produtoId:'p1',produtoNome:'Alface Brida',qtdPlantada:200,dataEntrada:hojeMais(-50)}; // passou de 45 dias
 eq(statusPlantio(lNa),'Na bancada','plantio com colheita futura = Na bancada');
 eq(statusPlantio(lPron),'Pronto p/ colher','plantio vencido = Pronto p/ colher');
-eq(statusPlantio(lColh),'Passado','plantio com +45 dias = Passado (automático)');
+eq(statusPlantio(lColh),'Passado','plantio bem depois da previsão = Passado (automático)');
 eq(addDias('2026-06-01',28),'2026-06-29','previsão = entrada + dias na bancada');
 
 /* ===== FASE: ESTOQUE — plantado no ponto − vendido (automático) ===== */
@@ -118,8 +118,23 @@ eq(document.getElementById('pl-atrasados').textContent,150,'painel: atrasados = 
 reset();
 PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
 PLANTIOS=[{id:'a',produtoId:'p1',qtdPlantada:200,dataEntrada:hojeMais(-50),previsaoColheita:hojeMais(-22)}]; VENDAS=[];
-eq(atrasadoProduto('p1'),0,'passou de 45 dias → não é mais atrasado (virou perda)');
+eq(atrasadoProduto('p1'),0,'passou do ponto → não é mais atrasado (virou perda)');
 eq(perdaProduto('p1'),200,'agora conta como perda');
+
+/* ===== FASE: PERDA POR PREVISÃO — respeita a estação de cada lote ===== */
+suite('Perda · pela previsão de cada lote (verão x inverno)');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+// MESMA entrada (-40), previsões diferentes: verão colhe antes, inverno depois
+var verao ={id:'v',produtoId:'p1',produtoNome:'Brida',qtdPlantada:100,dataEntrada:hojeMais(-40),previsaoColheita:hojeMais(-16)}; // 16d após previsão → passou (tolerância 14)
+var inverno={id:'i',produtoId:'p1',produtoNome:'Brida',qtdPlantada:100,dataEntrada:hojeMais(-40),previsaoColheita:hojeMais(-5)};  // 5d após previsão → ainda no ponto
+PLANTIOS=[verao,inverno]; VENDAS=[];
+eq(plantioPassado(verao),  true,  'previsão -16d (passou dos 14 de tolerância) → perdido');
+eq(plantioPassado(inverno),false, 'previsão -5d (dentro da tolerância) → ainda no ponto');
+eq(diasDesdePasso(verao), 2, 'passou do ponto há 2 dias (16 − 14 de tolerância)');
+eq(statusPlantio(inverno),'Pronto p/ colher','inverno segue vendável, mesma entrada do de verão');
+eq(perdaProduto('p1'),100,'só o lote de verão (passado) é perda');
+eq(estoqueProduto('p1'),100,'o de inverno segue pronto pra vender');
 
 /* ===== FASE: RELATÓRIO — prontos pra colher por estufa ===== */
 suite('Relatório · prontos pra colher por estufa');
@@ -305,7 +320,7 @@ ok(plb.includes('3 bandeja'),'lista mostra as bandejas');
 ok(plb.includes('600 pés'),'lista mostra os pés equivalentes');
 
 /* ===== FASE: PERDAS — automático por 45 dias (plantio × vendas) ===== */
-suite('Perdas · automático por 45 dias');
+suite('Perdas · automático ao passar do ponto');
 reset();
 PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
 PLANTIOS=[
