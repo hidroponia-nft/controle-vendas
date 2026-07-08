@@ -153,10 +153,23 @@ ok(rep.indexOf('Estufa 1') < rep.indexOf('Estufa 2'),'Estufa 1 antes da Estufa 2
 /* ===== FASE: RESUMO — números do topo da aba Plantio ===== */
 suite('Resumo · contadores do topo');
 renderPlantios();
-eq(document.getElementById('pl-cultivo').textContent, 470, 'pés em cultivo = 470 (exclui passado)');
+eq(document.getElementById('pl-cultivo').textContent, 200, 'crescendo = 200 (só o lote antes do ponto; exclui prontos e passado)');
 eq(document.getElementById('pl-prontos').textContent, 270, 'prontos p/ colher = 270 pés');
 eq(document.getElementById('pl-atrasados').textContent, 150, 'atrasados = 150 (lPron passou do ponto; lE1 colhe hoje ainda não conta)');
 eq(document.getElementById('pl-lotes').textContent, 3, 'plantios na bancada = 3 (exclui passado)');
+
+/* painel usa LÍQUIDO: desconta o que já foi vendido (igual ao cadastro de Produto) */
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5}];
+PLANTIOS=[
+  {id:'a',produtoId:'p1',qtdPlantada:300,dataEntrada:hojeMais(-25),previsaoColheita:hojeMais(-2)}, // pronto
+  {id:'b',produtoId:'p1',qtdPlantada:200,dataEntrada:hojeMais(-5), previsaoColheita:hojeMais(20)}   // crescendo
+];
+VENDAS=[{itens:[{id:'p1',qtd:100}]}]; // FIFO: sai do lote pronto (a)
+renderPlantios();
+eq(document.getElementById('pl-prontos').textContent, 200, 'prontos LÍQUIDO = 300 − 100 vendidos = 200');
+eq(document.getElementById('pl-cultivo').textContent, 200, 'crescendo = 200 (lote b, intacto)');
+eq(document.getElementById('pl-lotes').textContent, 2, 'lotes vivos = 2');
 
 /* ===== FASE: VENDAS — total e itens do carrinho ===== */
 suite('Vendas · cálculo do carrinho');
