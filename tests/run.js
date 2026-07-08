@@ -283,6 +283,34 @@ eq(noCarrinho('p1'),7,'digitar de novo ajusta (7)');
 cartDel('p1');
 eq(noCarrinho('p1'),0,'lixeira remove do carrinho');
 
+/* ===== FASE: VENDAS — soma vendida cacheada por produto (otimização) ===== */
+suite('Vendas · soma cacheada por produto');
+reset();
+PRODUTOS=[{id:'p1',nome:'A',preco:5},{id:'p2',nome:'B',preco:4}];
+VENDAS=[{itens:[{id:'p1',qtd:10},{id:'p2',qtd:5}]},{itens:[{id:'p1',qtd:20}]}];
+eq(vendidoProduto('p1'),30,'p1 vendido = 10+20');
+eq(vendidoProduto('p2'),5,'p2 vendido = 5');
+eq(vendidoProduto('p3'),0,'produto sem venda = 0');
+VENDAS=[{itens:[{id:'p1',qtd:7}]}];               // troca o array → cache invalida por referência
+eq(vendidoProduto('p1'),7,'após trocar VENDAS, recalcula (cache invalidado)');
+VENDAS.push({itens:[{id:'p1',qtd:3}]});           // muda o tamanho no mesmo array
+eq(vendidoProduto('p1'),10,'após push (muda tamanho), recalcula');
+
+/* ===== FASE: VENDAS — aviso de vender acima do que está pronto ===== */
+suite('Vendas · aviso acima do pronto (não trava)');
+reset();
+PRODUTOS=[{id:'p1',nome:'Brida',preco:5},{id:'p2',nome:'Roxa',preco:4}];
+PLANTIOS=[{id:'a',produtoId:'p1',qtdPlantada:100,dataEntrada:hojeMais(-25),previsaoColheita:hojeMais(-2)}]; // p1: 100 pronto
+CART=[{id:'p1',nome:'Brida',preco:5,qtd:40}];
+eq(cartAcimaDoPronto().length,0,'vendendo 40 com 100 pronto → sem aviso');
+CART=[{id:'p1',nome:'Brida',preco:5,qtd:150}];
+eq(cartAcimaDoPronto().length,1,'vendendo 150 com 100 pronto → avisa');
+eq(cartAcimaDoPronto()[0].pronto,100,'o aviso mostra quanto está pronto (100)');
+CART=[{id:'p2',nome:'Roxa',preco:4,qtd:5}];        // p2 não tem plantio (0 pronto)
+eq(cartAcimaDoPronto().length,1,'produto sem nada pronto também avisa');
+renderCart();
+ok(document.getElementById('cart').innerHTML.includes('Acima do que está pronto'),'o carrinho mostra o aviso laranja');
+
 /* ===== FASE: VENDAS — data da venda escolhida no calendário ===== */
 suite('Vendas · data escolhida no calendário');
 var hj=new Date().toISOString().slice(0,10), t0=Date.now();

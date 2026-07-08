@@ -620,9 +620,18 @@ function previsaoDoLote(p){ return p.previsaoColheita || addDias(p.dataEntrada||
 /* dias desde que o lote passou do ponto (>0 = já virou perda) */
 function diasDesdePasso(p){ return -diasPara(previsaoDoLote(p)) - TOLERANCIA_COLHEITA; }
 function plantioPassado(p){ return diasDesdePasso(p) > 0; }
-function vendidoProduto(pid){
-  let n=0; VENDAS.forEach(v=>(v.itens||[]).forEach(it=>{ if(it.id===pid) n+=it.qtd||0; })); return n;
+/* soma vendida por produto — CACHEADO. Os listeners trocam o array VENDAS inteiro a cada
+   atualização, então um render que consulta vários produtos varre as vendas UMA vez só
+   (antes era O(produtos × vendas) a cada atualização). Invalida por referência e por tamanho. */
+let _vendMap=null, _vendRef=null, _vendLen=-1;
+function vendidoMap(){
+  if(_vendRef===VENDAS && _vendLen===VENDAS.length && _vendMap) return _vendMap;
+  const m={};
+  VENDAS.forEach(v=>(v.itens||[]).forEach(it=>{ if(it.id) m[it.id]=(m[it.id]||0)+(it.qtd||0); }));
+  _vendMap=m; _vendRef=VENDAS; _vendLen=VENDAS.length;
+  return m;
 }
+function vendidoProduto(pid){ return vendidoMap()[pid]||0; }
 /* atribui as vendas do produto aos plantios, do mais antigo pro mais novo (FIFO) */
 function alocaVendas(pid){
   const pls=PLANTIOS.filter(p=>p.produtoId===pid)
@@ -963,10 +972,15 @@ function cartSetQty(id,v){
   renderCart();
 }
 function cartDel(id){ CART=CART.filter(x=>x.id!==id); renderCart(); }
+/* itens do carrinho cuja quantidade passa do que está PRONTO pra vender (aviso, não trava) */
+function cartAcimaDoPronto(){
+  return CART.filter(it=>it.qtd > estoqueProduto(it.id))
+             .map(it=>({id:it.id, nome:it.nome, qtd:it.qtd, pronto:estoqueProduto(it.id)}));
+}
 function renderCart(){
   const box=$('cart');
   if(!CART.length){ box.innerHTML='<div class="empty" style="padding:14px">Carrinho vazio</div>'; $('cart-total').textContent=brl(0); return; }
-  box.innerHTML = CART.map(it=>`
+  const linhas = CART.map(it=>`
     <div class="cart-line">
       <div class="nm">${esc(it.nome)}<div class="sub muted">${brl(it.preco)} cada</div></div>
       <input class="qtyinput" type="number" inputmode="numeric" min="1" value="${it.qtd}"
@@ -974,6 +988,9 @@ function renderCart(){
       <div style="min-width:74px;text-align:right;font-weight:700">${brl(it.preco*it.qtd)}</div>
       <button class="qtydel" onclick="cartDel('${it.id}')" title="Remover">🗑</button>
     </div>`).join('');
+  const acima=cartAcimaDoPronto();
+  const aviso = acima.length ? `<div style="background:#fff3e0;border:1.5px solid #ffcc80;color:#b26a00;border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13.5px;line-height:1.35">⚠️ <b>Acima do que está pronto:</b> ${acima.map(a=>`${esc(a.nome)} (${a.qtd} > ${a.pronto} pronto)`).join(', ')}<br><span style="opacity:.85">Dá pra vender assim mesmo — só confira se não foi engano de digitação.</span></div>` : '';
+  box.innerHTML = linhas + aviso;
   $('cart-total').textContent = brl(cartTotal());
 }
 function cartTotal(){ return CART.reduce((s,it)=>s+it.preco*it.qtd,0); }
