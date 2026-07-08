@@ -3,7 +3,7 @@
    Assim toda atualizacao publicada aparece NA HORA — sem cache teimoso segurando
    versao velha (era o que acontecia com a estrategia "cache primeiro" anterior). */
 
-const CACHE = 'vendas-app-v12';
+const CACHE = 'vendas-app-v13';
 const CORE = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (e) => {
