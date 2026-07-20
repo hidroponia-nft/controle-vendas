@@ -1,9 +1,11 @@
-/* Service Worker do Controle de Vendas — estrategia "REDE PRIMEIRO" (network-first).
-   Sempre busca a versao fresca na rede; so cai no cache quando esta SEM INTERNET.
-   Assim toda atualizacao publicada aparece NA HORA — sem cache teimoso segurando
-   versao velha (era o que acontecia com a estrategia "cache primeiro" anterior). */
+/* Service Worker do Controle de Vendas — estrategia "REDE PRIMEIRO" (network-first)
+   COM LIMITE DE TEMPO (3s). Tenta a versao fresca na rede; se a rede demorar mais
+   que 3s (conexao ruim), cai IMEDIATAMENTE no cache em vez de deixar o app travado
+   esperando. Sem internet, usa direto o cache. Assim atualizacoes aparecem na hora
+   quando ha rede boa, mas o app nunca "congela" numa conexao fraca. */
 
-const CACHE = 'vendas-app-v13';
+const CACHE = 'vendas-app-v14';
+const REDE_TIMEOUT = 3000; // ms — acima disso, serve o cache pra nao travar
 const CORE = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (e) => {
@@ -30,12 +32,13 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
-      // REDE PRIMEIRO: sempre tenta a versao fresca e atualiza o cache.
-      const fresh = await fetch(req, { cache: 'no-store' });
+      // REDE PRIMEIRO, mas com LIMITE DE TEMPO: se a rede nao responder em
+      // REDE_TIMEOUT ms, aborta e cai no cache — evita o app travar esperando.
+      const fresh = await fetchComTimeout(req, REDE_TIMEOUT);
       cache.put(req, fresh.clone());
       return fresh;
     } catch (err) {
-      // Sem internet: usa a ultima versao guardada.
+      // Rede lenta/abortada ou sem internet: usa a ultima versao guardada.
       const cached = await cache.match(req);
       if (cached) return cached;
       // Navegacao sem cache: tenta a home como ultimo recurso.
@@ -47,3 +50,12 @@ self.addEventListener('fetch', (e) => {
     }
   })());
 });
+
+/* fetch com timeout: aborta a requisicao se passar de `ms` milissegundos.
+   Rejeita a Promise (cai no catch acima, que serve o cache). */
+function fetchComTimeout(req, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  return fetch(req, { cache: 'no-store', signal: ctrl.signal })
+    .finally(() => clearTimeout(t));
+}

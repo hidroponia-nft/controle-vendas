@@ -42,7 +42,8 @@ body{
   background:
     radial-gradient(1200px 460px at 50% -150px, var(--th-soft) 0%, rgba(255,255,255,0) 72%),
     var(--th-bg);
-  background-attachment:fixed;
+  /* SEM background-attachment:fixed — em celular ele forca repintar a tela inteira
+     a cada rolagem/troca de aba e era uma das causas de travamento. */
   color:var(--txt);
   padding-bottom:calc(96px + env(safe-area-inset-bottom));
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
@@ -138,7 +139,9 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;appearance
 
 nav{
   position:fixed;bottom:0;left:0;right:0;z-index:40;
-  background:rgba(255,255,255,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  /* fundo quase opaco em vez de backdrop-filter:blur() — o blur no menu fixo
+     era recalculado a cada repintura e travava o celular ao trocar de aba. */
+  background:rgba(255,255,255,.975);
   border-top:1px solid var(--line);
   display:flex;justify-content:space-around;gap:2px;
   padding:8px 6px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -6px 22px rgba(20,60,120,.10);
