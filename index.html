@@ -1516,6 +1516,43 @@ renderCart();
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
+
+/* ───────────────────────── DETECTOR DE TRAVAMENTO (temporario) ─────────────────────────
+   Vigia a thread principal: se a tela congelar por mais de LIMITE ms, mostra um aviso
+   VERMELHO no topo com quanto travou, a aba e a ultima acao tocada. Serve pra diagnosticar
+   travamento no celular, onde nao da pra ver o console — e so mandar um print do aviso.
+   A guarda (setInterval/document.body) impede que rode no testador. Remover quando resolver. */
+if(typeof setInterval==='function' && typeof document!=='undefined' && document.body){
+  (function(){
+    const LIMITE=400, INTERVALO=250;   // travou = congelou > 400ms; vigia a cada 250ms
+    let ultimaAcao='abrindo o app';
+    document.addEventListener('click',function(e){
+      const el=(e.target&&e.target.closest)?e.target.closest('button,[onclick],select,input,a,nav *'):null;
+      const nome=el?(el.textContent||el.getAttribute('title')||el.tagName):'toque';
+      ultimaAcao=String(nome).replace(/\s+/g,' ').trim().slice(0,44)||'toque';
+    },true);
+    function avisar(ms){
+      let box=document.getElementById('freeze-warn');
+      if(!box){
+        box=document.createElement('div');
+        box.id='freeze-warn';
+        box.style.cssText='position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));z-index:9999;background:#b71c1c;color:#fff;padding:12px 14px;border-radius:14px;font:700 14px/1.35 -apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35)';
+        box.addEventListener('click',function(){ box.remove(); });
+        document.body.appendChild(box);
+      }
+      const aba=(document.body.className||'').replace('tab-','')||'?';
+      box.innerHTML='⏱️ <b>Travou '+(ms/1000).toFixed(1)+'s</b> — aba: '+aba+' · ação: '+ultimaAcao
+        +'<br><span style="font-weight:400;opacity:.85">Toque pra fechar. Mande um print disto.</span>';
+      clearTimeout(box._h); box._h=setTimeout(function(){ box.remove(); }, 9000);
+    }
+    let last=Date.now();
+    setInterval(function(){
+      const now=Date.now(), travou=now-last-INTERVALO;   // quanto passou alem do esperado
+      last=now;
+      if(travou>LIMITE) avisar(travou);
+    }, INTERVALO);
+  })();
+}
 </script>
 </body>
 </html>

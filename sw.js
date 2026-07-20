@@ -4,7 +4,7 @@
    esperando. Sem internet, usa direto o cache. Assim atualizacoes aparecem na hora
    quando ha rede boa, mas o app nunca "congela" numa conexao fraca. */
 
-const CACHE = 'vendas-app-v14';
+const CACHE = 'vendas-app-v15';
 const REDE_TIMEOUT = 3000; // ms — acima disso, serve o cache pra nao travar
 const CORE = ['./', './index.html', './manifest.json'];
 
